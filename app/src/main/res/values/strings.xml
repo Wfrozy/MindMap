@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">MindMap</string>
+    <string name="new_file_button">New File</string>
+    <string name="open_button">Open File</string>
+    <string name="create_new_file_title">Create new map</string>
+    <string name="create_new_file_name">File Name</string>
+    <string name="create_new_file_confirm_button">Create</string>
+    <string name="create_new_file_cancel_button">Cancel</string>
+    <string name="create_new_file_device_storage_label">Device Storage</string>
+    <string name="create_new_file_app_storage_label">App Storage</string>
+    <string name="create_new_file_device_storage_description">Saves map in a location of your choice on the device. Other apps may access these files.</string>
+    <string name="create_new_file_app_storage_description">Saves map privately within the app, not accessible to other apps, but data will be lost if the app is uninstalled.</string>
+    <string name="create_new_file_storage_option_subtitle">Storage Option</string>
+    <string name="default_map_name_with_json">YourMap.json</string>
+    <string name="default_map_name_no_json">YourMap</string>
+    <string name="toast_file_created_success">Saved %1$s</string>
+    <string name="toast_file_created_fail">Failed to save %1$s</string>
+    <string name="toast_file_saving_cancelled">Cancelled saving.</string>
+    <string name="contentDescription_import_file_iconButton">Import map</string>
+    <string name="contentDescription_settings_iconButton">App settings</string>
+    <string name="contentDescription_create_new_file_fab">Create new map</string>
+    <string name="contentDescription_device_storage_info_icon">Store map on device storage info bubble</string>
+    <string name="contentDescription_app_storage_info_icon">Store map on app storage info bubble</string>
+    <string name="contentDescription_settings_for_selected_map_icon">Settings for selected map</string>
+</resources>

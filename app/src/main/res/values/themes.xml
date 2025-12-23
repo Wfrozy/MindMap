@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.MindMap" parent="Theme.Material3.DayNight.NoActionBar" />
+
+    <!--splash screen theme-->
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/logo_vecteezy_map_background_color</item>
+        <item name="postSplashScreenTheme">@style/Theme.MindMap</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/vecteezy_map</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/logo_vecteezy_map_background_color</item>
+        <item name="splashScreenIconSize">@dimen/splash_icon_size</item>
+    </style>
+</resources>

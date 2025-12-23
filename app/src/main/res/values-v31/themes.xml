@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--Used on devices with API 31 or higher-->
+
+<resources>
+
+    <style name="Theme.MindMap" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/logo_vecteezy_map_background_color</item>
+        <item name="postSplashScreenTheme">@style/Theme.MindMap</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/vecteezy_map</item>
+    </style>
+</resources>
