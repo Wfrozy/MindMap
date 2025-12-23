@@ -24,6 +24,10 @@
             android:name=".MapEditorActivity"
             android:launchMode="singleTop">
         </activity>
+        <activity
+            android:name=".SettingsActivity"
+            android:launchMode="singleTop">
+        </activity>
     </application>
 
 </manifest>

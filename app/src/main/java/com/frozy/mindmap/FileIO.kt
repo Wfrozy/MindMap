@@ -2,9 +2,12 @@ package com.frozy.mindmap
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileNotFoundException
+import java.io.IOException
 import java.io.OutputStream
 
 
@@ -52,8 +55,14 @@ object FileIO {
         return withContext(Dispatchers.IO) {
             try {
                 context.openFileInput(filename).bufferedReader(Charsets.UTF_8).use { it.readText() }
-            } catch (e: Exception) {
-                e.printStackTrace()
+            } catch (e: FileNotFoundException) {
+                Log.w("Function readTextFromFileInAppStorage", "File named \"$filename\" not found (FileNotFoundException).", e)
+                null
+            } catch (e: IOException) {
+                Log.e("Function readTextFromFileInAppStorage", "IO error while reading \"$filename\" (IOException).", e)
+                null
+            } catch (e: SecurityException) {
+                Log.e("Function readTextFromFileInAppStorage", "Cannot access \"$filename\" (SecurityException)", e)
                 null
             }
         }

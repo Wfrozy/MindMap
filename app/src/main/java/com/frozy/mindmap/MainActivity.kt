@@ -57,6 +57,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.frozy.mindmap.ui.theme.MindMapShapes
 import com.frozy.mindmap.ui.theme.MindMapTypography
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts.CreateDocument
@@ -67,6 +68,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
+import org.json.JSONException
 import org.json.JSONObject
 
 class MainActivity : ComponentActivity() {
@@ -76,7 +78,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             MindMapTheme {
-                MainActivityUI(applicationContext)
+                MainActivityUI()
             }
         }
     }
@@ -103,21 +105,17 @@ fun checkIfFileNameIsInvalid(string: String): Boolean{
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainActivityUI(
-    applicationContext: Context
-) {
+fun MainActivityUI() {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
     var isCreateDialogVisible by remember { mutableStateOf(value = false) }
-    var isErrorDialogVisible by remember { mutableStateOf(value = false) }
     var currentFileData by remember { mutableStateOf(value = FileData()) }
     var selectedStorage by remember { mutableStateOf(value = StorageOption.DEVICE) }
 
     //the list of files that gets shown on screen
     var fileList by remember { mutableStateOf(value = listOf<FileData>()) }
 
-    //todo add sanitized file name and no json to file data
     //this variable depends on dataFromFile so this syntax is needed
     var sanitizedFileName by remember(currentFileData.fileName) {
         mutableStateOf(value = currentFileData.fileName.sanitizeAndEnsureJsonExtension(fallbackString = context.getString(R.string.default_map_name_with_json)))
@@ -143,15 +141,18 @@ fun MainActivityUI(
             //make it run separately from the UI thread
             coroutineScope.launch {
                 val isWriteSuccessful = FileIO.writeTextToUri(context, uri, jsonText)
-
                 if (isWriteSuccessful) {
-                    //add the created file to the list (capture storage)
-                    fileList = fileList + currentFileData.copy(storage = selectedStorage, timeStampID = System.currentTimeMillis())
+                    //add the created file to the list
+                    fileList = fileList + currentFileData.copy(
+                        fileName= sanitizedFileNameNoJson,
+                        storage = selectedStorage,
+                        timeStampID = System.currentTimeMillis()
+                    )
                     Toast.makeText(context,
-                        context.getString(R.string.toast_file_created_success, sanitizedFileName), Toast.LENGTH_SHORT).show()
+                        context.getString(R.string.toast_file_created_success, sanitizedFileNameNoJson), Toast.LENGTH_SHORT).show()
                 } else {
                     Toast.makeText(context,
-                        context.getString(R.string.toast_file_created_fail, sanitizedFileName), Toast.LENGTH_LONG).show()
+                        context.getString(R.string.toast_file_created_fail, sanitizedFileNameNoJson), Toast.LENGTH_LONG).show()
                 }
             }
         } else {
@@ -163,14 +164,15 @@ fun MainActivityUI(
     //executes when composition starts
     LaunchedEffect(Unit) {
         val filesInAppStorage = FileIO.listFilesInAppStorage(context)
-        val internalFileList = mutableListOf<FileData>()
+        val fileListLocal = mutableListOf<FileData>()
 
         filesInAppStorage.forEach { f ->
-            val text = FileIO.readTextFromFileInAppStorage(context, filename = f.name)
-            if (text != null) {
+            val text = FileIO.readTextFromFileInAppStorage(context = context, filename = f.name)
+
+            if (!text.isNullOrEmpty()) {
                 try {
                     val obj = JSONObject(text)
-                    internalFileList.add(
+                    fileListLocal.add(
                         FileData(
                             fileName = f.name,
                             fileContent = obj.optString("fileContent", ""),
@@ -178,9 +180,9 @@ fun MainActivityUI(
                             timeStampID = obj.optLong("createdAt", f.lastModified())
                         )
                     )
-                } catch (e: Exception) { //todo make try catch block make more sense idk
-                    e.printStackTrace()
-                    internalFileList.add(
+                } catch (e: JSONException) {
+                    Log.w("LaunchedEffectMainActivity", "JSON Error (JSON Exception).", e)
+                    fileListLocal.add(
                         FileData(
                             fileName = f.name,
                             fileContent = text,
@@ -192,7 +194,7 @@ fun MainActivityUI(
             }
         }
         //appends the files that were found to the fileList sorted by file name
-        fileList = internalFileList.sortedByDescending { it.fileName }
+        fileList = fileListLocal.sortedByDescending { it.fileName }
     }
 
 
@@ -278,7 +280,7 @@ fun MainActivityUI(
                     items(items = fileList, key = { it.timeStampID }) { file ->
                         val borderColor = when{
                             file.storage == StorageOption.APP -> MaterialTheme.colorScheme.inverseOnSurface
-                            else -> Color.Blue //todo change color
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
                         }
                         Row(
                             modifier = Modifier
@@ -329,7 +331,7 @@ fun MainActivityUI(
                                     contentDescription = stringResource(R.string.contentDescription_settings_for_selected_map_icon),
                                     modifier = Modifier
                                         //todo onclick
-                                        .clickable(enabled = true, onClick = { editMapSettings() })
+                                        .clickable(onClick = { editMapSettings() })
                                         .size(28.dp)
                                 )
                             }
@@ -505,7 +507,7 @@ fun CreateNewFileDialog(
         confirmButton = {
             TextButton(
                 onClick = onConfirm,
-                enabled = !isFileNameInvalid && !currentFileData.fileName.checkIfNameExists(fileList = fileList) //todo
+                enabled = !isFileNameInvalid
             ) {
                 Text(text = stringResource(id = R.string.create_new_file_confirm_button))
             }

@@ -6,6 +6,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import org.json.JSONObject
+import java.io.File
 
 
 //this file includes extension functions
@@ -34,15 +35,6 @@ fun String.sanitizeAndEnsureJsonExtension(fallbackString: String): String {
 
     return if (sanitized.endsWith(".json", ignoreCase = true)) sanitized
     else "$sanitized.json"
-}
-
-//todo fix this
-fun String.checkIfNameExists(
-    fileList: List<FileData>
-): Boolean {
-    var doesNameExist = false
-    for(file in fileList){ doesNameExist = (this == file.fileName); if(doesNameExist) break }
-    return doesNameExist
 }
 
 fun Activity.hideSystemStatusBar(){
