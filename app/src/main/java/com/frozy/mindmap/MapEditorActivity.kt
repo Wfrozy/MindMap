@@ -49,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.frozy.mindmap.ui.theme.MindMapShapes
 import com.frozy.mindmap.ui.theme.MindMapTypography
@@ -108,19 +109,19 @@ fun MapEditorUI(
             ){
                 EditorBottomSheetItem(
                     icon = Icons.Default.Lightbulb,
-                    text = "New Idea",
+                    text = stringResource(R.string.map_editor_new_idea),
                     //todo
                     itemOnClick = { }
                 )
                 EditorBottomSheetItem(
                     icon = Icons.Default.Cable,
-                    text = "New Flow Idea",
+                    text = stringResource(R.string.map_editor_new_flow_idea),
                     //todo
                     itemOnClick = { }
                 )
                 EditorBottomSheetItem(
                     icon = Icons.Default.AddPhotoAlternate,
-                    text = "Add Image",
+                    text = stringResource(R.string.map_editor_add_image),
                     includeSpacer = false,
                     //todo
                     itemOnClick = { }
@@ -132,19 +133,16 @@ fun MapEditorUI(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             TopAppBar(
-//                modifier = Modifier.height(32.dp),
                 colors = topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
                 ),
                 navigationIcon = {
                     IconButton(
-                        //todo
                         onClick = backButtonOnClick,
                         content = {
                             Icon(
                                 imageVector = Icons.Default.ArrowCircleLeft,
-                                //todo
-                                contentDescription = null
+                                contentDescription = stringResource(R.string.contentDescription_back_button)
                             )
                         }
                     )
@@ -167,8 +165,7 @@ fun MapEditorUI(
                         content = {
                             Icon(
                                 imageVector = Icons.Default.MoreVert,
-                                //todo
-                                contentDescription = null
+                                contentDescription = stringResource(R.string.contentDescription_more_map_options_in_map_editor)
                             )
                         }
                     )
@@ -185,8 +182,7 @@ fun MapEditorUI(
             ) {
                 Icon(
                     imageVector = Icons.Default.Construction,
-                    //todo
-                    contentDescription = null
+                    contentDescription = stringResource(R.string.contentDescription_add_new_content_in_map_editor)
                 )
             }
         }
@@ -209,11 +205,10 @@ fun MapEditorUI(
                         Icon(
                             painter = painterResource(id = R.drawable.icons8_sad_face),
                             tint = commonColor,
-                            //todo
                             contentDescription = null
                         )
                         Text(
-                            text = "Nothing here yet...",
+                            text = stringResource(R.string.background_text_in_empty_map),
                             color = commonColor,
                             style = MindMapTypography.labelLarge
                         )

@@ -57,38 +57,40 @@ import androidx.compose.ui.window.DialogProperties
 import com.frozy.mindmap.ui.theme.MindMapShapes
 import com.frozy.mindmap.ui.theme.MindMapTypography
 import android.net.Uri
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts.CreateDocument
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
-import org.json.JSONException
 import org.json.JSONObject
 
+//todo put the file list in a DataStore
 class MainActivity : ComponentActivity() {
+    private val mainActivityVM: MainActivityViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             MindMapTheme {
-                MainActivityUI()
+                MainActivityUI(mavm = mainActivityVM)
             }
         }
     }
 }
 
+//todo change some of this
 data class FileData(
     val fileName: String = "",
     val fileContent: String = "",
     val storage: StorageOption = StorageOption.DEVICE,
-    //used for helping Compose identify each lazy column item uniquely and reliably
     val timeStampID: Long = System.currentTimeMillis()
 )
 
@@ -105,100 +107,70 @@ fun checkIfFileNameIsInvalid(string: String): Boolean{
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainActivityUI() {
+fun MainActivityUI(
+    mavm: MainActivityViewModel
+) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    var isCreateDialogVisible by remember { mutableStateOf(value = false) }
     var currentFileData by remember { mutableStateOf(value = FileData()) }
     var selectedStorage by remember { mutableStateOf(value = StorageOption.DEVICE) }
 
     //the list of files that gets shown on screen
-    var fileList by remember { mutableStateOf(value = listOf<FileData>()) }
+    val fileList by mavm.fileList.collectAsState()
+    var isCreateDialogVisible by remember { mutableStateOf(value = false) }
 
-    //this variable depends on dataFromFile so this syntax is needed
+    //this variable exists because i can't use context.getString() anymore inside sanitizeAndEnsureJsonExtension()
+    val fallbackString = stringResource(id = R.string.default_map_name_with_json)
+
+    //this variable depends on currentFileData so this syntax is needed
     var sanitizedFileName by remember(currentFileData.fileName) {
-        mutableStateOf(value = currentFileData.fileName.sanitizeAndEnsureJsonExtension(fallbackString = context.getString(R.string.default_map_name_with_json)))
+        mutableStateOf(value = currentFileData.fileName.sanitizeAndEnsureJsonExtension(fallbackString = fallbackString))
     }
     var sanitizedFileNameNoJson by remember(sanitizedFileName) {
         mutableStateOf(value = sanitizedFileName.removeSuffix(suffix = ".json"))
     }
-    //Launcher: CreateDocument -> user picks location and final name
+
+    //these variables exist because i can't use context.getString() anymore inside the toasts
+    val toastFileCreatedSuccess = stringResource(id = R.string.toast_file_created_success, sanitizedFileNameNoJson)
+    val toastFileCreatedFail = stringResource(id = R.string.toast_file_created_fail, sanitizedFileNameNoJson)
+    val toastFileSavingCancelled = stringResource(id = R.string.toast_file_saving_cancelled)
+
+    //this is not in the ViewModel because it would be a pain to implement it there
     val createDocumentLauncher = rememberLauncherForActivityResult(
         contract = CreateDocument(mimeType = "application/json")
     ) { uri: Uri? ->
-        //this runs when the user completed (or cancelled) the picker
-        if (uri != null) {
-            //puts these parameters from the current fileData into the json
-            val jsonObj = JSONObject().applyBasicContent(
-                fileName = sanitizedFileName,
-                selectedStorage = selectedStorage,
-                fileContent = currentFileData,
-            )
-            //transforms the json object to a string and indents it
-            val jsonText = jsonObj.toString(2)
 
-            //make it run separately from the UI thread
-            coroutineScope.launch {
-                val isWriteSuccessful = FileIO.writeTextToUri(context, uri, jsonText)
-                if (isWriteSuccessful) {
-                    //add the created file to the list
-                    fileList = fileList + currentFileData.copy(
-                        fileName= sanitizedFileNameNoJson,
-                        storage = selectedStorage,
-                        timeStampID = System.currentTimeMillis()
-                    )
-                    Toast.makeText(context,
-                        context.getString(R.string.toast_file_created_success, sanitizedFileNameNoJson), Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(context,
-                        context.getString(R.string.toast_file_created_fail, sanitizedFileNameNoJson), Toast.LENGTH_LONG).show()
-                }
-            }
-        } else {
-            Toast.makeText(context,
-                context.getString(R.string.toast_file_saving_cancelled), Toast.LENGTH_LONG).show()
+        if(uri == null) {
+            Toast.makeText(context, toastFileSavingCancelled, Toast.LENGTH_LONG).show()
+            return@rememberLauncherForActivityResult
         }
-    }
 
-    //executes when composition starts
-    LaunchedEffect(Unit) {
-        val filesInAppStorage = FileIO.listFilesInAppStorage(context)
-        val fileListLocal = mutableListOf<FileData>()
+        //puts these parameters from the current fileData into the json
+        val jsonObj = JSONObject().applyBasicContent(
+            fileName = sanitizedFileName,
+            selectedStorage = selectedStorage,
+            fileContent = currentFileData,
+        )
+        //transforms the json object to a string and indents it
+        val jsonText = jsonObj.toString(2)
 
-        filesInAppStorage.forEach { f ->
-            val text = FileIO.readTextFromFileInAppStorage(context = context, filename = f.name)
-
-            if (!text.isNullOrEmpty()) {
-                try {
-                    val obj = JSONObject(text)
-                    fileListLocal.add(
-                        FileData(
-                            fileName = f.name,
-                            fileContent = obj.optString("fileContent", ""),
-                            storage = StorageOption.APP,
-                            timeStampID = obj.optLong("createdAt", f.lastModified())
-                        )
-                    )
-                } catch (e: JSONException) {
-                    Log.w("LaunchedEffectMainActivity", "JSON Error (JSON Exception).", e)
-                    fileListLocal.add(
-                        FileData(
-                            fileName = f.name,
-                            fileContent = text,
-                            storage = StorageOption.APP,
-                            timeStampID = f.lastModified()
-                        )
-                    )
-                }
+        //make it run separately from the UI thread
+        coroutineScope.launch {
+            val isWriteSuccessful = FileIO.writeTextToUri(context, uri, jsonText)
+            if (isWriteSuccessful) {
+                //add the created file to the list
+                mavm.changeFileList(newValue = fileList + currentFileData.copy(
+                    fileName= sanitizedFileNameNoJson,
+                    storage = selectedStorage,
+                    timeStampID = System.currentTimeMillis()
+                ))
+                Toast.makeText(context, toastFileCreatedSuccess, Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, toastFileCreatedFail, Toast.LENGTH_LONG).show()
             }
         }
-        //appends the files that were found to the fileList sorted by file name
-        fileList = fileListLocal.sortedByDescending { it.fileName }
     }
-
-
-    //UI
 
     Scaffold(
         topBar = {
@@ -234,7 +206,7 @@ fun MainActivityUI() {
                     )
                     IconButton(
                         //todo onclick
-                        onClick = { settingsFromTopAppBarButton() },
+                        onClick = { context.openSettingsActivity() },
                         content = {
                             Icon(
                                 imageVector = Icons.Default.Settings,
@@ -346,7 +318,6 @@ fun MainActivityUI() {
     if (isCreateDialogVisible) {
         CreateNewFileDialog(
             currentFileData = currentFileData,
-            fileList = fileList,
             onTextFieldValueChangeSetter = { currentFileData = it },
             onDismiss = { isCreateDialogVisible = false },
             onConfirm = {
@@ -357,7 +328,7 @@ fun MainActivityUI() {
                 //if StorageOption.APP
                 else {
                     coroutineScope.launch {
-                        val uniqueName = FileIO.makeUniqueFilename(context.filesDir, sanitizedFileName)
+                        val uniqueFileName = FileIO.makeUniqueFilename(dir = context.filesDir, baseName = sanitizedFileName)
                         val jsonObj = JSONObject().applyBasicContent(
                             fileName = sanitizedFileName,
                             selectedStorage = selectedStorage,
@@ -365,16 +336,16 @@ fun MainActivityUI() {
                         )
                         val jsonText = jsonObj.toString(2)
 
-                        val isWriteSuccessful = FileIO.writeTextToFileInAppStorage(context, uniqueName, jsonText)
+                        val isWriteSuccessful = FileIO.writeTextToFileInAppStorage(context, uniqueFileName, jsonText)
                         if (isWriteSuccessful) {
                             // Add to file list using the stored filename and storage
                             val newFileData = currentFileData.copy(
                                 storage = StorageOption.APP,
-                                fileName = uniqueName,
+                                fileName = uniqueFileName,
                                 timeStampID = System.currentTimeMillis()
                             )
-                            fileList = fileList + newFileData
-                            Toast.makeText(context, "Saved $uniqueName", Toast.LENGTH_SHORT).show()
+                            mavm.changeFileList(newValue = fileList + newFileData)
+                            Toast.makeText(context, "Saved ${uniqueFileName.removeSuffix(suffix = ".json")}", Toast.LENGTH_SHORT).show()
                         } else {
                             Toast.makeText(context, "Failed to save $sanitizedFileNameNoJson", Toast.LENGTH_LONG).show()
                         }
@@ -392,7 +363,6 @@ fun MainActivityUI() {
 @Composable
 fun CreateNewFileDialog(
     currentFileData: FileData,
-    fileList: List<FileData>,
     onTextFieldValueChangeSetter: (FileData) -> Unit,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
@@ -407,7 +377,7 @@ fun CreateNewFileDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = stringResource(R.string.create_new_file_title)
+                text = stringResource(id = R.string.create_new_file_title)
             )
         },
         text = {
@@ -524,27 +494,35 @@ fun CreateNewFileDialog(
     )
 }
 
-fun settingsFromTopAppBarButton(){}
+fun Context.openSettingsActivity(){
+    val intent = Intent(this, SettingsActivity::class.java)
+    /*
+        if the activity already exists in the current task’s back stack, Android will
+        destroy every Activity above it,
+        bring the existing instance to the foreground,
+        reuse it instead of creating a new one,
+        and prevents recreation if the activity is already on top
+    */
+    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+    this.startActivity(intent)
+}
 fun loadFileButton(){}
 fun debugButton(){}
 fun editMapSettings(){}
 
 fun openSelectedMap(context: Context, file: FileData){
-    try{
-        val intent = Intent(context, MapEditorActivity::class.java).apply {
-            putExtra("file_name", file.fileName)
-            putExtra("storage", file.storage.name)
-        }
-        /*
-            if the activity already exists in the current task’s back stack, Android will
-            destroy every Activity above it,
-            bring the existing instance to the foreground,
-            reuse it instead of creating a new one,
-            and prevents recreation if the activity is already on top
-        */
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        context.startActivity(intent)
-    } catch(e: Exception) {
-        e.printStackTrace()
+    val intent = Intent(context, MapEditorActivity::class.java).apply {
+        putExtra("file_name", file.fileName)
+        putExtra("storage", file.storage.name)
+        //todo file path???
     }
+    /*
+        if the activity already exists in the current task’s back stack, Android will
+        destroy every Activity above it,
+        bring the existing instance to the foreground,
+        reuse it instead of creating a new one,
+        and prevents recreation if the activity is already on top
+    */
+    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+    context.startActivity(intent)
 }

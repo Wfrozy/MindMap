@@ -10,28 +10,23 @@ import java.io.FileNotFoundException
 import java.io.IOException
 import java.io.OutputStream
 
-
-//this file contains functions related to file IO operations
-
-
 object FileIO {
 
     //writes data (json text) to the selected uri (file path)
     suspend fun writeTextToUri(context: Context, uri: Uri, text: String): Boolean {
-        return withContext(Dispatchers.IO) {
+            //todo clean up error handling
             var outputStream: OutputStream? = null
             try {
                 outputStream = context.contentResolver.openOutputStream(uri)
                 outputStream?.write(text.toByteArray(Charsets.UTF_8))
                 outputStream?.flush()
-                true
+                return true
             } catch (e: Exception) {
                 e.printStackTrace()
-                false
+                return false
             } finally {
                 try { outputStream?.close() } catch (_: Exception) {}
             }
-        }
     }
 
     //write text to file in app storage
@@ -52,19 +47,17 @@ object FileIO {
 
     //reads text from file in app storage
     suspend fun readTextFromFileInAppStorage(context: Context, filename: String): String? {
-        return withContext(Dispatchers.IO) {
-            try {
-                context.openFileInput(filename).bufferedReader(Charsets.UTF_8).use { it.readText() }
-            } catch (e: FileNotFoundException) {
-                Log.w("Function readTextFromFileInAppStorage", "File named \"$filename\" not found (FileNotFoundException).", e)
-                null
-            } catch (e: IOException) {
-                Log.e("Function readTextFromFileInAppStorage", "IO error while reading \"$filename\" (IOException).", e)
-                null
-            } catch (e: SecurityException) {
-                Log.e("Function readTextFromFileInAppStorage", "Cannot access \"$filename\" (SecurityException)", e)
-                null
-            }
+        try {
+            return context.openFileInput(filename).bufferedReader(Charsets.UTF_8).use { it.readText() }
+        } catch (e: FileNotFoundException) {
+            Log.w("Function readTextFromFileInAppStorage", "File named \"$filename\" not found (FileNotFoundException).", e)
+            return null
+        } catch (e: IOException) {
+            Log.e("Function readTextFromFileInAppStorage", "IO error while reading \"$filename\" (IOException).", e)
+            return null
+        } catch (e: SecurityException) {
+            Log.e("Function readTextFromFileInAppStorage", "Cannot access \"$filename\" (SecurityException)", e)
+            return null
         }
     }
 
