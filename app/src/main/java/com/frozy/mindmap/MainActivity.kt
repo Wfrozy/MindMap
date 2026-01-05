@@ -71,6 +71,7 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 //todo put the file list in a DataStore
+//todo add a background thing when there are no files in the file list (like in the map editor activity)
 class MainActivity : ComponentActivity() {
     private val mainActivityVM: MainActivityViewModel by viewModels()
 
@@ -86,23 +87,14 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-//todo change some of this
-data class FileData(
-    val fileName: String = "",
-    val fileContent: String = "",
-    val storage: StorageOption = StorageOption.DEVICE,
-    val timeStampID: Long = System.currentTimeMillis()
-)
+const val MAX_MAP_NAME_LENGTH = 16
 
-//enum class to make code more readable
-enum class StorageOption(val label: Int, val description: Int) {
-    DEVICE(label = R.string.create_new_file_device_storage_label, description = R.string.create_new_file_device_storage_description),
-    APP(label = R.string.create_new_file_app_storage_label,  description = R.string.create_new_file_app_storage_description)
-}
+//todo change some of this
 
 fun checkIfFileNameIsInvalid(string: String): Boolean{
     return string.any{ it in "/\\:*?\"<>|"} ||
-           string.isBlank()
+           string.isBlank() ||
+           string.length > MAX_MAP_NAME_LENGTH
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -184,7 +176,7 @@ fun MainActivityUI(
                 actions = {
                     //debug button
                     IconButton(
-                        //todo onclick
+                        //todo debug
                         onClick = { debugButton() },
                         content = {
                             Icon(
@@ -195,6 +187,7 @@ fun MainActivityUI(
                         }
                     )
                     IconButton(
+                        //todo load file functionality
                         onClick = { loadFileButton() },
                         content = {
                             Icon(
@@ -205,7 +198,6 @@ fun MainActivityUI(
                         }
                     )
                     IconButton(
-                        //todo onclick
                         onClick = { context.openSettingsActivity() },
                         content = {
                             Icon(
@@ -302,7 +294,7 @@ fun MainActivityUI(
                                     imageVector = Icons.Default.Edit,
                                     contentDescription = stringResource(R.string.contentDescription_settings_for_selected_map_icon),
                                     modifier = Modifier
-                                        //todo onclick
+                                        //todo edit map settings
                                         .clickable(onClick = { editMapSettings() })
                                         .size(28.dp)
                                 )

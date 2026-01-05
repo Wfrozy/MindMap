@@ -25,9 +25,11 @@
     <string name="contentDescription_back_button">Go back to previous menu</string>
     <string name="contentDescription_more_map_options_in_map_editor">More map options</string>
     <string name="contentDescription_add_new_content_in_map_editor">Add new content</string>
-    <string name="background_text_in_empty_map">Nothing here yet...</string>
+    <string name="background_text_in_empty_map">Nothing here yet…</string>
     <string name="settings_title">Settings</string>
-    <string name="map_editor_new_idea">New Idea</string>
-    <string name="map_editor_new_flow_idea">New Flow Idea</string>
+    <string name="map_editor_new_note">New Note</string>
+    <string name="map_editor_new_space">New Space</string>
     <string name="map_editor_add_image">Add Image</string>
+    <string name="contentDescription_enable_reader_mode">Enable reader mode</string>
+    <string name="contentDescription_enable_editor_mode">Enable editor mode</string>
 </resources>
