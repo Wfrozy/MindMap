@@ -59,6 +59,7 @@ import com.frozy.mindmap.ui.theme.MindMapTypography
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.contract.ActivityResultContracts.CreateDocument
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
@@ -68,10 +69,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
+import org.json.JSONException
 import org.json.JSONObject
 
 //todo put the file list in a DataStore
 //todo add a background thing when there are no files in the file list (like in the map editor activity)
+//todo add file deletion
+//todo mime type stuff as well so that there is .mindmap
 class MainActivity : ComponentActivity() {
     private val mainActivityVM: MainActivityViewModel by viewModels()
 
@@ -127,6 +131,8 @@ fun MainActivityUI(
     val toastFileCreatedSuccess = stringResource(id = R.string.toast_file_created_success, sanitizedFileNameNoJson)
     val toastFileCreatedFail = stringResource(id = R.string.toast_file_created_fail, sanitizedFileNameNoJson)
     val toastFileSavingCancelled = stringResource(id = R.string.toast_file_saving_cancelled)
+    val toastFileLoadingCancelled = stringResource(id = R.string.toast_file_picker_cancelled)
+//    val toastJSONExceptionError = stringResource(R.string.toast_file_picker_json_error)
 
     //this is not in the ViewModel because it would be a pain to implement it there
     val createDocumentLauncher = rememberLauncherForActivityResult(
@@ -152,7 +158,7 @@ fun MainActivityUI(
             val isWriteSuccessful = FileIO.writeTextToUri(context, uri, jsonText)
             if (isWriteSuccessful) {
                 //add the created file to the list
-                mavm.changeFileList(newValue = fileList + currentFileData.copy(
+                mavm.changeFileList(value = fileList + currentFileData.copy(
                     fileName= sanitizedFileNameNoJson,
                     storage = selectedStorage,
                     timeStampID = System.currentTimeMillis()
@@ -163,6 +169,34 @@ fun MainActivityUI(
             }
         }
     }
+
+    val openMultipleDocumentsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        //OpenMultipleDocuments can return an empty list is it is cancelled
+        if(uris.isEmpty()){
+            Toast.makeText(context, toastFileLoadingCancelled, Toast.LENGTH_SHORT).show()
+        }
+        coroutineScope.launch {
+            val operationResultList = FileIO.getJsonDataFromUris(
+                context = context,
+                uris = uris
+            )
+            operationResultList.forEach {
+                if (it.isSuccess){
+                    mavm.changeFileList( //finish adding stuff to the fileList
+                        value = fileList + FileData(
+                            fileName = it.data?.first ?: context.getString(R.string.default_map_name_no_json),
+                        )
+                    )
+                } else {
+                    //todo different messages for different errors
+                    Toast.makeText(context, "Idk, some error happened", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
 
     Scaffold(
         topBar = {
@@ -188,7 +222,7 @@ fun MainActivityUI(
                     )
                     IconButton(
                         //todo load file functionality
-                        onClick = { loadFileButton() },
+                        onClick = { openMultipleDocumentsLauncher.launch(arrayOf("application/json")) },
                         content = {
                             Icon(
                                 imageVector = Icons.Default.ImportExport,
@@ -336,7 +370,7 @@ fun MainActivityUI(
                                 fileName = uniqueFileName,
                                 timeStampID = System.currentTimeMillis()
                             )
-                            mavm.changeFileList(newValue = fileList + newFileData)
+                            mavm.changeFileList(value = fileList + newFileData)
                             Toast.makeText(context, "Saved ${uniqueFileName.removeSuffix(suffix = ".json")}", Toast.LENGTH_SHORT).show()
                         } else {
                             Toast.makeText(context, "Failed to save $sanitizedFileNameNoJson", Toast.LENGTH_LONG).show()
@@ -498,7 +532,6 @@ fun Context.openSettingsActivity(){
     intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
     this.startActivity(intent)
 }
-fun loadFileButton(){}
 fun debugButton(){}
 fun editMapSettings(){}
 

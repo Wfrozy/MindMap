@@ -32,4 +32,6 @@
     <string name="map_editor_add_image">Add Image</string>
     <string name="contentDescription_enable_reader_mode">Enable reader mode</string>
     <string name="contentDescription_enable_editor_mode">Enable editor mode</string>
+    <string name="toast_file_picker_cancelled">File picker cancelled.</string>
+    <string name="toast_file_picker_json_error">Failed to load content.</string>
 </resources>

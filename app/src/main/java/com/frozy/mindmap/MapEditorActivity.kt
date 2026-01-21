@@ -10,12 +10,12 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -60,11 +60,10 @@ import com.frozy.mindmap.ui.theme.MindMapTheme
 import androidx.compose.material3.TopAppBarDefaults.topAppBarColors
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.scale
@@ -76,7 +75,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.frozy.mindmap.MapEditorViewModel.MapItem
 import com.frozy.mindmap.ui.theme.MindMapShapes
@@ -88,7 +86,10 @@ import com.frozy.mindmap.ui.theme.MindMapTypography
 //todo add toggle for "editor mode" and "reader mode"
 //todo make the text field in the text idea thing expand to the number of lines
 //todo add animations everywhere
+//todo add sfx to buttons and stuff maybe?
 class MapEditorActivity : ComponentActivity() {
+    private val mapEditorVM: MapEditorViewModel by viewModels()
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -102,6 +103,7 @@ class MapEditorActivity : ComponentActivity() {
         setContent {
             MindMapTheme {
                MapEditorUI(
+                   mevm = mapEditorVM,
                    backButtonOnClick = { finish() },
                    fileNameFromIntent = fileNameFromIntent
                )
@@ -115,36 +117,28 @@ const val TEXTFIELD_MAX_LINES = 127
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapEditorUI(
+    mevm: MapEditorViewModel,
     backButtonOnClick: () -> Unit,
     fileNameFromIntent: String
 ){
-    var isEditorModeEnabled by remember { mutableStateOf(value = false) }
-    val coroutineScope = rememberCoroutineScope()
     var isBottomSheetVisible by remember { mutableStateOf(value = false) }
     val fileNameFromIntentNoJson = fileNameFromIntent.removeSuffix(suffix = ".json")
     val currentActivity = LocalActivity.current
+    val isEditorModeEnabled by mevm.isEditorModeEnabled.collectAsState()
+    val pagerList by mevm.pagerList.collectAsState()
+    val pagerState = rememberPagerState(pageCount = { pagerList.size })
     var isHorizontalPagerVisible by remember { mutableStateOf(value = false) }
-    var pagerState = rememberPagerState(pageCount = { 0 })
-    val pagerList = remember { mutableStateListOf<MapItem>() }
-    if(pagerList.isEmpty()){
-        isHorizontalPagerVisible = false
-    } else {
-        pagerState = rememberPagerState(
-            pageCount = { pagerList.size }
-        )
-        isHorizontalPagerVisible = true
-    }
 
     BackHandler(enabled = isEditorModeEnabled) {
-        isEditorModeEnabled = false
+        mevm.changeEditorModeState(value = false)
     }
 
-    LaunchedEffect(pagerState.pageCount) {
-        if (pagerState.pageCount != 0){
-            pagerState.animateScrollToPage(pagerState.pageCount)
-        }
+    LaunchedEffect(pagerList.size) {
+        if (pagerList.isNotEmpty()){
+            pagerState.animateScrollToPage(pagerList.lastIndex)
+            isHorizontalPagerVisible = true
+        } else isHorizontalPagerVisible = false
     }
-
     DisposableEffect(isBottomSheetVisible) {
         currentActivity?.hideSystemStatusBar()
         onDispose { currentActivity?.hideSystemStatusBar() }
@@ -164,7 +158,7 @@ fun MapEditorUI(
                     text = stringResource(R.string.map_editor_new_note),
                     //todo
                     itemOnClick = {
-                        pagerList.add(MapItem.Note())
+                        mevm.changePagerList(value = pagerList + MapItem.Note.create())
                         isBottomSheetVisible = false
                     }
                 )
@@ -173,7 +167,7 @@ fun MapEditorUI(
                     text = stringResource(R.string.map_editor_new_space),
                     //todo
                     itemOnClick = {
-                        pagerList.add(MapItem.Space())
+                        mevm.changePagerList(value = pagerList + MapItem.Space())
                         isBottomSheetVisible = false
                     }
                 )
@@ -196,7 +190,6 @@ fun MapEditorUI(
                 TopAppBar(
                     colors = topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.background
-//                    containerColor = Color.Transparent
                     ),
                     navigationIcon = {
                         IconButton(
@@ -233,7 +226,7 @@ fun MapEditorUI(
                         )
                         //testing
                         IconButton(
-                            onClick = { isEditorModeEnabled = !isEditorModeEnabled },
+                            onClick = { mevm.changeEditorModeState(value = !isEditorModeEnabled) },
                             content = {
                                 Icon(
                                     imageVector = Icons.Default.BugReport,
@@ -264,7 +257,7 @@ fun MapEditorUI(
 
                 FloatingActionButton(
                     onClick = {
-                        isEditorModeEnabled = !isEditorModeEnabled
+                        mevm.changeEditorModeState(value = !isEditorModeEnabled)
                         currentActivity?.hideSystemStatusBar()
                     }
                 ) {
@@ -295,16 +288,22 @@ fun MapEditorUI(
                             state = pagerState,
                             modifier = Modifier.fillMaxWidth(),
                             pageSpacing = 69.dp,
-                            beyondViewportPageCount = 1
+                            beyondViewportPageCount = 1,
+                            key = { listIndex -> pagerList[listIndex].uuid }
                         ) { listIndex ->
-                            when (val page = pagerList[listIndex]) {
+                            when (val currentPage = pagerList[listIndex]) {
                                 is MapItem.Note -> {
-                                    NoteScreen(activity = currentActivity)
+                                    NoteScreen(
+                                        activity = currentActivity,
+                                        note = currentPage,
+                                        mevm = mevm,
+                                        pagerList = pagerList
+                                    )
                                 }
                                 is MapItem.Space -> {
                                     SpaceScreen(
                                         activity = currentActivity,
-                                        nodes = page.nodeInfo
+                                        nodes = currentPage.nodeInfo
                                     )
                                 }
                             }
@@ -314,7 +313,6 @@ fun MapEditorUI(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
                                 .padding(bottom = 16.dp)
-//                            .border(BorderStroke(2.dp, Color(red = 0, green = 255, blue = 255)))
                         ) {
                             repeat(times = pagerState.pageCount) { index ->
                                 val color =
@@ -397,11 +395,16 @@ fun EditorBottomSheetItem(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun NoteScreen(activity: Activity?) {
-    var title by remember { mutableStateOf(value = "") }
-    var content by remember { mutableStateOf(value = "") }
+fun NoteScreen(
+    activity: Activity?,
+    note: MapItem.Note,
+    mevm: MapEditorViewModel,
+    pagerList: List<MapItem>
+) {
     var isTextFieldFocused by remember { mutableStateOf(value = false) }
     val focusManager = LocalFocusManager.current
+    var title by remember(note.uuid) { mutableStateOf(note.titleText) }
+    var content by remember(note.uuid) { mutableStateOf(note.contentText) }
 
     BackHandler(enabled = isTextFieldFocused) {
         focusManager.clearFocus(force = true)
@@ -415,7 +418,9 @@ fun NoteScreen(activity: Activity?) {
         TextField(
             value = title,
             textStyle = MaterialTheme.typography.titleLarge,
-            onValueChange = { title = it },
+            onValueChange = { //the last time u were coding this u left off here changing the onValueChange stuff, good luck
+                title = it
+            },
             singleLine = false,
             modifier = Modifier
                 .fillMaxWidth()
@@ -426,6 +431,10 @@ fun NoteScreen(activity: Activity?) {
                     } else {
                         activity?.hideSystemStatusBar()
                     }
+                    mevm.changeNoteTitle(
+                        noteUUID = note.uuid,
+                        newTitle = title
+                    )
                 },
 //            colors = TextFieldDefaults.colors(
 //                focusedContainerColor = MaterialTheme.colorScheme.background,
@@ -437,7 +446,9 @@ fun NoteScreen(activity: Activity?) {
 
         TextField(
             value = content,
-            onValueChange = { content = it },
+            onValueChange = {
+                content = it
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
@@ -448,6 +459,10 @@ fun NoteScreen(activity: Activity?) {
                     } else {
                         activity?.hideSystemStatusBar()
                     }
+                    mevm.changeNoteContent(
+                        noteUUID = note.uuid,
+                        newContent = content
+                    )
                 },
             maxLines = TEXTFIELD_MAX_LINES,
             colors = TextFieldDefaults.colors(
@@ -499,58 +514,52 @@ fun SpaceScreen(
         }
     }
 }
-
-@Composable
-fun SpaceContent(
-    nodes: List<MapEditorViewModel.SpaceNode>,
-    camera: MapEditorViewModel.SpaceCameraState
-) {
-    nodes.forEach { node ->
-        Box(
-            modifier = Modifier
-//                .offset {
-////                    IntOffset(
-////                        (node.xPos + camera.xPos).toInt(),
-////                        (node.yPos + camera.yPos).toInt()
-////                    )
-//                }
-                .size(150.dp)
-                .background(Color(0xFF2A2A2A))
-        ) {
-            Text(
-                text = node.text,
-                color = Color.White,
-                modifier = Modifier.padding(8.dp)
-            )
-        }
-    }
-}
-
-@Composable
-fun DottedBackground(
-    modifier: Modifier = Modifier,
-    dotColor: Color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.15f),
-    dotRadius: Dp = 1.5.dp,
-    spacing: Dp = 24.dp
-) {
-    Canvas(modifier = modifier) {
-        val radiusPx = dotRadius.toPx()
-        val spacingPx = spacing.toPx()
-
-        val cols = (size.width / spacingPx).toInt() + 1
-        val rows = (size.height / spacingPx).toInt() + 1
-
-        for (x in 0..cols) {
-            for (y in 0..rows) {
-                drawCircle(
-                    color = dotColor,
-                    radius = radiusPx,
-                    center = Offset(
-                        x * spacingPx,
-                        y * spacingPx
-                    )
-                )
-            }
-        }
-    }
-}
+//
+//@Composable
+//fun SpaceContent(
+//    nodes: List<MapEditorViewModel.SpaceNode>,
+//    camera: MapEditorViewModel.SpaceCameraState
+//) {
+//    nodes.forEach { node ->
+//        Box(
+//            modifier = Modifier
+//                .size(150.dp)
+//                .background(Color(0xFF2A2A2A))
+//        ) {
+//            Text(
+//                text = node.text,
+//                color = Color.White,
+//                modifier = Modifier.padding(8.dp)
+//            )
+//        }
+//    }
+//}
+//
+//@Composable
+//fun DottedBackground(
+//    modifier: Modifier = Modifier,
+//    dotColor: Color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.15f),
+//    dotRadius: Dp = 1.5.dp,
+//    spacing: Dp = 24.dp
+//) {
+//    Canvas(modifier = modifier) {
+//        val radiusPx = dotRadius.toPx()
+//        val spacingPx = spacing.toPx()
+//
+//        val cols = (size.width / spacingPx).toInt() + 1
+//        val rows = (size.height / spacingPx).toInt() + 1
+//
+//        for (x in 0..cols) {
+//            for (y in 0..rows) {
+//                drawCircle(
+//                    color = dotColor,
+//                    radius = radiusPx,
+//                    center = Offset(
+//                        x * spacingPx,
+//                        y * spacingPx
+//                    )
+//                )
+//            }
+//        }
+//    }
+//}

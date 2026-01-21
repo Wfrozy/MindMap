@@ -2,6 +2,8 @@
   <dictionary name="project">
     <words>
       <w>mavm</w>
+      <w>mevm</w>
+      <w>textfield</w>
     </words>
   </dictionary>
 </component>
