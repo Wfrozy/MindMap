@@ -30,14 +30,13 @@ class MainActivityViewModel(private val application: Application) : AndroidViewM
                 val fileListLocal = mutableListOf<FileData>()
 
                 filesInAppStorage.forEach { f ->
-                    val text =
-                        FileIO.readTextFromFileInAppStorage(context = context, filename = f.name)
+                    val text = FileIO.readTextFromFileInAppStorage(context = context, filename = f.name)
                     if (!text.isNullOrEmpty()) {
                         val fileData = try {
                             val obj = JSONObject(text)
                             FileData(
                                 fileName = f.name,
-                                fileContent = obj.optString("fileContent", ""),
+//                                fileContent = obj.optString("fileContent", ""), //todo load file content here
                                 storage = StorageOption.APP,
                                 timeStampID = obj.optLong("createdAt", f.lastModified())
                             )
@@ -45,7 +44,7 @@ class MainActivityViewModel(private val application: Application) : AndroidViewM
                             Log.w("MainActivityViewModelInitLoadFiles", "JSON Error (JSON Exception).", e)
                             FileData(
                                 fileName = f.name,
-                                fileContent = text,
+//                                fileContent = text, //todo load file content here
                                 storage = StorageOption.APP,
                                 timeStampID = f.lastModified()
                             )

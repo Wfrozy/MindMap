@@ -62,12 +62,18 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.contract.ActivityResultContracts.CreateDocument
 import androidx.activity.viewModels
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.Cable
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
+import com.frozy.mindmap.MapEditorViewModel.MapItem
 import kotlinx.coroutines.launch
 import org.json.JSONException
 import org.json.JSONObject
@@ -114,10 +120,14 @@ fun MainActivityUI(
 
     //the list of files that gets shown on screen
     val fileList by mavm.fileList.collectAsState()
+
     var isCreateDialogVisible by remember { mutableStateOf(value = false) }
+    var isBottomSheetVisible by remember { mutableStateOf(value = false) }
+    var isEditDialogVisible by remember { mutableStateOf(value = false) }
 
     //this variable exists because i can't use context.getString() anymore inside sanitizeAndEnsureJsonExtension()
     val fallbackString = stringResource(id = R.string.default_map_name_with_json)
+    val fallbackStringNoJson = stringResource(id = R.string.default_map_name_no_json)
 
     //this variable depends on currentFileData so this syntax is needed
     var sanitizedFileName by remember(currentFileData.fileName) {
@@ -132,7 +142,10 @@ fun MainActivityUI(
     val toastFileCreatedFail = stringResource(id = R.string.toast_file_created_fail, sanitizedFileNameNoJson)
     val toastFileSavingCancelled = stringResource(id = R.string.toast_file_saving_cancelled)
     val toastFileLoadingCancelled = stringResource(id = R.string.toast_file_picker_cancelled)
-//    val toastJSONExceptionError = stringResource(R.string.toast_file_picker_json_error)
+    val toastFileLoadingJSONException = stringResource(R.string.toast_file_picker_json_exception)
+    val toastFileLoadingSecurityException = stringResource(R.string.toast_file_picker_security_exception)
+    val toastFileLoadingFileNotFoundException = stringResource(R.string.toast_file_picker_file_not_found_exception)
+    val toastFileLoadingIOException = stringResource(R.string.toast_file_picker_io_exception)
 
     //this is not in the ViewModel because it would be a pain to implement it there
     val createDocumentLauncher = rememberLauncherForActivityResult(
@@ -183,15 +196,28 @@ fun MainActivityUI(
                 uris = uris
             )
             operationResultList.forEach {
-                if (it.isSuccess){
-                    mavm.changeFileList( //finish adding stuff to the fileList
+                if (it.isSuccess) {
+                    mavm.changeFileList(
                         value = fileList + FileData(
-                            fileName = it.data?.first ?: context.getString(R.string.default_map_name_no_json),
+                            fileName = it.data?.first ?: fallbackStringNoJson,
+                            fileContent = it.data?.second ?: JSONObject()
                         )
                     )
                 } else {
-                    //todo different messages for different errors
-                    Toast.makeText(context, "Idk, some error happened", Toast.LENGTH_SHORT).show()
+                    when(it.errorInfo){
+                        is JSONException -> {
+                            Toast.makeText(context, toastFileLoadingJSONException, Toast.LENGTH_LONG).show()
+                        }
+                        is SecurityException -> {
+                            Toast.makeText(context, toastFileLoadingSecurityException, Toast.LENGTH_LONG).show()
+                        }
+                        is java.io.FileNotFoundException -> {
+                            Toast.makeText(context, toastFileLoadingFileNotFoundException, Toast.LENGTH_LONG).show()
+                        }
+                        is java.io.IOException -> {
+                            Toast.makeText(context, toastFileLoadingIOException, Toast.LENGTH_LONG).show()
+                        }
+                    }
                 }
             }
         }
@@ -208,29 +234,6 @@ fun MainActivityUI(
                     )
                 },
                 actions = {
-                    //debug button
-                    IconButton(
-                        //todo debug
-                        onClick = { debugButton() },
-                        content = {
-                            Icon(
-                                imageVector = Icons.Default.BugReport,
-                                tint = Color(0xFF23D715),
-                                contentDescription = ""
-                            )
-                        }
-                    )
-                    IconButton(
-                        //todo load file functionality
-                        onClick = { openMultipleDocumentsLauncher.launch(arrayOf("application/json")) },
-                        content = {
-                            Icon(
-                                imageVector = Icons.Default.ImportExport,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                contentDescription = stringResource(R.string.contentDescription_import_file_iconButton)
-                            )
-                        }
-                    )
                     IconButton(
                         onClick = { context.openSettingsActivity() },
                         content = {
@@ -249,7 +252,7 @@ fun MainActivityUI(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { isCreateDialogVisible = true }
+                onClick = { isBottomSheetVisible = true }
             ) {
                 Icon(
                     imageVector = Icons.Filled.Add,
@@ -329,12 +332,35 @@ fun MainActivityUI(
                                     contentDescription = stringResource(R.string.contentDescription_settings_for_selected_map_icon),
                                     modifier = Modifier
                                         //todo edit map settings
-                                        .clickable(onClick = { editMapSettings() })
+                                        .clickable(onClick = { isEditDialogVisible = true })
                                         .size(28.dp)
                                 )
                             }
                         }
                         Spacer(modifier = Modifier.height(height = 8.dp))
+                    }
+                }
+            }
+            AnimatedVisibility(
+                visible = isBottomSheetVisible
+            ) {
+                ModalBottomSheet(
+                    onDismissRequest = { isBottomSheetVisible = false }
+                ) {
+                    Column(
+                        modifier = Modifier.padding(all = 16.dp)
+                    ) {
+                        EditorBottomSheetItem(
+                            icon = Icons.Default.Add,
+                            text = "Create new map",
+                            itemOnClick = { isCreateDialogVisible = true }
+                        )
+                        EditorBottomSheetItem(
+                            icon = Icons.Default.ImportExport,
+                            text = "Import map",
+                            itemOnClick = { openMultipleDocumentsLauncher.launch(arrayOf("application/json")) },
+                            includeSpacer = false
+                        )
                     }
                 }
             }
@@ -378,146 +404,20 @@ fun MainActivityUI(
                     }
                 }
                 isCreateDialogVisible = false
+                isBottomSheetVisible = false
             },
             currentSelectedStorage = selectedStorage,
             onStorageOptionChange = { option -> selectedStorage = option }
         )
     }
-}
 
-//used in the floating action button
-@Composable
-fun CreateNewFileDialog(
-    currentFileData: FileData,
-    onTextFieldValueChangeSetter: (FileData) -> Unit,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit,
-    currentSelectedStorage: StorageOption,
-    onStorageOptionChange: (StorageOption) -> Unit
-){
-    var showAppStorageInfo by remember { mutableStateOf(value = false) }
-    var showDeviceStorageInfo by remember { mutableStateOf(value = false) }
-    var isFileNameInvalid by remember { mutableStateOf(value = false) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = stringResource(id = R.string.create_new_file_title)
-            )
-        },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = currentFileData.fileName,
-                    onValueChange = { newValue ->
-                        isFileNameInvalid = checkIfFileNameIsInvalid(string = newValue)
-                        onTextFieldValueChangeSetter(currentFileData.copy(fileName = newValue))
-                    },
-                    label = {
-                        Text(text = stringResource(id = R.string.create_new_file_name))
-                    },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    isError = isFileNameInvalid
-                )
-                Spacer(modifier = Modifier.height(height = 12.dp))
-                Text(
-                    text = stringResource(id = R.string.create_new_file_storage_option_subtitle),
-                    style = MindMapTypography.titleMedium
-                )
-                Column {
-
-                    //device storage option -----------------------
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                    ) {
-                        //device
-                        RadioButton(
-                            selected = currentSelectedStorage == StorageOption.DEVICE,
-                            onClick = { onStorageOptionChange( StorageOption.DEVICE ) }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = stringResource(id = StorageOption.DEVICE.label))
-                        Spacer(modifier = Modifier.weight(1f))
-
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = stringResource(R.string.contentDescription_device_storage_info_icon),
-                            modifier = Modifier
-                                .size(20.dp)
-                                .clickable { showDeviceStorageInfo = !showDeviceStorageInfo }
-                        )
-                    }
-
-                    if (showDeviceStorageInfo) {
-                        Text(
-                            text = stringResource(id = StorageOption.DEVICE.description),
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(start = 40.dp, top = 2.dp),
-                            textAlign = TextAlign.Start
-                        )
-                    }
-
-                    //app storage option -----------------------
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                    ) {
-                        //app
-                        RadioButton(
-                            selected = currentSelectedStorage == StorageOption.APP,
-                            onClick = { onStorageOptionChange(StorageOption.APP) }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = stringResource(id = StorageOption.APP.label))
-                        Spacer(modifier = Modifier.weight(1f))
-
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = stringResource(R.string.contentDescription_app_storage_info_icon),
-                            modifier = Modifier
-                                .size(20.dp)
-                                .clickable { showAppStorageInfo = !showAppStorageInfo }
-                        )
-                    }
-
-                    if (showAppStorageInfo) {
-                        Text(
-                            text = stringResource(id = StorageOption.APP.description),
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(start = 40.dp, top = 2.dp),
-                            textAlign = TextAlign.Start
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onConfirm,
-                enabled = !isFileNameInvalid
-            ) {
-                Text(text = stringResource(id = R.string.create_new_file_confirm_button))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(text = stringResource(id = R.string.create_new_file_cancel_button))
-            }
-        },
-        properties = DialogProperties(
-            dismissOnBackPress = true,
-            dismissOnClickOutside = true
+    if(isEditDialogVisible){
+        EditMapDialog(
+            onDismiss = { isEditDialogVisible = false },
+            onConfirm = {},
+            currentFileData = FileData()
         )
-    )
+    }
 }
 
 fun Context.openSettingsActivity(){
@@ -527,13 +427,11 @@ fun Context.openSettingsActivity(){
         destroy every Activity above it,
         bring the existing instance to the foreground,
         reuse it instead of creating a new one,
-        and prevents recreation if the activity is already on top
+        and prevent recreation if the activity is already on top
     */
     intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
     this.startActivity(intent)
 }
-fun debugButton(){}
-fun editMapSettings(){}
 
 fun openSelectedMap(context: Context, file: FileData){
     val intent = Intent(context, MapEditorActivity::class.java).apply {

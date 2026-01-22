@@ -33,5 +33,9 @@
     <string name="contentDescription_enable_reader_mode">Enable reader mode</string>
     <string name="contentDescription_enable_editor_mode">Enable editor mode</string>
     <string name="toast_file_picker_cancelled">File picker cancelled.</string>
-    <string name="toast_file_picker_json_error">Failed to load content.</string>
+    <string name="toast_file_picker_json_exception">Malformed map file.</string>
+    <string name="toast_file_picker_security_exception">App can\'t access map file.</string>
+    <string name="toast_file_picker_file_not_found_exception">Couldn\'t find map file.</string>
+    <string name="toast_file_picker_io_exception">Failed to read content from map file.</string>
+    <string name="edit_map_dialog_confirm_button">Confirm</string>
 </resources>

@@ -1,8 +1,10 @@
 package com.frozy.mindmap
 
+import org.json.JSONObject
+
 data class FileData(
     val fileName: String = "",
-    val fileContent: String = "",
+    val fileContent: JSONObject = JSONObject(),
     val storage: StorageOption = StorageOption.DEVICE,
     val timeStampID: Long = System.currentTimeMillis()
 )
