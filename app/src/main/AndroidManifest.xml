@@ -12,7 +12,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.App.Starting">
         <activity
-            android:name=".MainActivity"
+            android:name=".app.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.App.Starting">
             <intent-filter>
@@ -21,11 +21,11 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".MapEditorActivity"
+            android:name=".mapeditor.MapEditorActivity"
             android:launchMode="singleTop">
         </activity>
         <activity
-            android:name=".SettingsActivity"
+            android:name=".settings.SettingsActivity"
             android:launchMode="singleTop">
         </activity>
     </application>

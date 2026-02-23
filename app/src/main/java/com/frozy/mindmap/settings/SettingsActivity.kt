@@ -1,4 +1,4 @@
-package com.frozy.mindmap
+package com.frozy.mindmap.settings
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -19,10 +19,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import com.frozy.mindmap.R
 import com.frozy.mindmap.ui.theme.MindMapTheme
 
 class SettingsActivity : ComponentActivity() {
     //todo DataStore stuff
+    //todo [small] add PT language option
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

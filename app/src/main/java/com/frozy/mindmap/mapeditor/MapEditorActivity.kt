@@ -1,10 +1,7 @@
-package com.frozy.mindmap
+package com.frozy.mindmap.mapeditor
 
-import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
-import androidx.compose.ui.graphics.Color
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
@@ -13,14 +10,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -35,7 +28,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.ArrowCircleLeft
-import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Cable
 import androidx.compose.material.icons.filled.Construction
 import androidx.compose.material.icons.filled.Edit
@@ -51,42 +43,43 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import com.frozy.mindmap.ui.theme.MindMapTheme
 import androidx.compose.material3.TopAppBarDefaults.topAppBarColors
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.frozy.mindmap.MapEditorViewModel.MapItem
-import com.frozy.mindmap.ui.theme.MindMapShapes
+import com.frozy.mindmap.ui.components.BottomSheetItem
+import com.frozy.mindmap.mapeditor.note.ui.NoteScreen
+import com.frozy.mindmap.R
+import com.frozy.mindmap.mapeditor.space.ui.SpaceScreen
+import com.frozy.mindmap.ui.util.hideSystemStatusBar
+import com.frozy.mindmap.ui.theme.MindMapTheme
 import com.frozy.mindmap.ui.theme.MindMapTypography
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlin.collections.plus
 
-//todo add cool transition between main activity and this activity
-//todo make it so the system bars don't pop up whe you switch apps
-//todo something with the top app bar to make it more immersive
-//todo add toggle for "editor mode" and "reader mode"
-//todo make the text field in the text idea thing expand to the number of lines
-//todo add animations everywhere
-//todo add sfx to buttons and stuff maybe?
+//todo [small] add cool transition between main activity and this activity
+//todo [small] make it so the system bars don't pop up whe you switch apps
+//todo [small] something with the top app bar to make it more immersive
+//todo [medium] add toggle for "editor mode" and "reader mode"
+//todo [medium] add animations everywhere
+//todo [small, optional] change boundary arrow to a "no you can't do this" symbol when you can't scroll or the fade color
 class MapEditorActivity : ComponentActivity() {
     private val mapEditorVM: MapEditorViewModel by viewModels()
 
@@ -112,8 +105,6 @@ class MapEditorActivity : ComponentActivity() {
     }
 }
 
-const val TEXTFIELD_MAX_LINES = 127
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapEditorUI(
@@ -121,10 +112,15 @@ fun MapEditorUI(
     backButtonOnClick: () -> Unit,
     fileNameFromIntent: String
 ){
+    val coroutineScope = rememberCoroutineScope()
+
+    val sheetState = rememberModalBottomSheetState()
     var isBottomSheetVisible by remember { mutableStateOf(value = false) }
+
     val fileNameFromIntentNoJson = fileNameFromIntent.removeSuffix(suffix = ".json")
     val currentActivity = LocalActivity.current
     val isEditorModeEnabled by mevm.isEditorModeEnabled.collectAsState()
+
     val pagerList by mevm.pagerList.collectAsState()
     val pagerState = rememberPagerState(pageCount = { pagerList.size })
     var isHorizontalPagerVisible by remember { mutableStateOf(value = false) }
@@ -144,40 +140,55 @@ fun MapEditorUI(
         onDispose { currentActivity?.hideSystemStatusBar() }
     }
 
-    AnimatedVisibility(
-        visible = isBottomSheetVisible
-    ) {
+    if(isBottomSheetVisible) {
         ModalBottomSheet(
-            onDismissRequest = { isBottomSheetVisible = false }
+            sheetState = sheetState,
+            onDismissRequest = {
+                coroutineScope.launch {
+                    sheetState.hide()
+                }.invokeOnCompletion {
+                    isBottomSheetVisible = false
+                }
+            }
         ) {
             Column(
                 modifier = Modifier.padding(all = 16.dp)
             ) {
-                EditorBottomSheetItem(
+                BottomSheetItem(
                     icon = Icons.Default.Lightbulb,
                     text = stringResource(R.string.map_editor_new_note),
-                    //todo
                     itemOnClick = {
-                        mevm.changePagerList(value = pagerList + MapItem.Note.create())
-                        isBottomSheetVisible = false
+                        mevm.changePagerList(value = pagerList + MapEditorViewModel.MapItem.Note())
+                        coroutineScope.launch {
+                            sheetState.hide()
+                        }.invokeOnCompletion {
+                            isBottomSheetVisible = false
+                        }
                     }
                 )
-                EditorBottomSheetItem(
+                BottomSheetItem(
                     icon = Icons.Default.Cable,
                     text = stringResource(R.string.map_editor_new_space),
-                    //todo
                     itemOnClick = {
-                        mevm.changePagerList(value = pagerList + MapItem.Space())
-                        isBottomSheetVisible = false
+                        mevm.changePagerList(value = pagerList + MapEditorViewModel.MapItem.Space())
+                        coroutineScope.launch {
+                            sheetState.hide()
+                        }.invokeOnCompletion {
+                            isBottomSheetVisible = false
+                        }
                     }
                 )
-                EditorBottomSheetItem(
+                BottomSheetItem(
                     icon = Icons.Default.AddPhotoAlternate,
                     text = stringResource(R.string.map_editor_add_image),
                     includeSpacer = false,
-                    //todo
+                    //todo [BIG] import image
                     itemOnClick = {
-                        isBottomSheetVisible = false
+                        coroutineScope.launch {
+                            sheetState.hide()
+                        }.invokeOnCompletion {
+                            isBottomSheetVisible = false
+                        }
                     }
                 )
             }
@@ -215,22 +226,11 @@ fun MapEditorUI(
                     },
                     actions = {
                         IconButton(
-                            //todo
+                            //todo [small] what could this even do?
                             onClick = {},
                             content = {
                                 Icon(
                                     imageVector = Icons.Default.MoreVert,
-                                    contentDescription = stringResource(R.string.contentDescription_more_map_options_in_map_editor)
-                                )
-                            }
-                        )
-                        //testing
-                        IconButton(
-                            onClick = { mevm.changeEditorModeState(value = !isEditorModeEnabled) },
-                            content = {
-                                Icon(
-                                    imageVector = Icons.Default.BugReport,
-                                    tint = Color(0xFF23D715),
                                     contentDescription = stringResource(R.string.contentDescription_more_map_options_in_map_editor)
                                 )
                             }
@@ -241,16 +241,22 @@ fun MapEditorUI(
         },
         floatingActionButton = {
             Column {
-                FloatingActionButton(
-                    onClick = {
-                        isBottomSheetVisible = true
-                        currentActivity?.hideSystemStatusBar()
+                if(!isEditorModeEnabled){
+                    FloatingActionButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                sheetState.show()
+                            }.invokeOnCompletion {
+                                isBottomSheetVisible = true
+                            }
+                            currentActivity?.hideSystemStatusBar()
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Construction,
+                            contentDescription = stringResource(R.string.contentDescription_add_new_content_in_map_editor)
+                        )
                     }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Construction,
-                        contentDescription = stringResource(R.string.contentDescription_add_new_content_in_map_editor)
-                    )
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -290,9 +296,9 @@ fun MapEditorUI(
                             pageSpacing = 69.dp,
                             beyondViewportPageCount = 1,
                             key = { listIndex -> pagerList[listIndex].uuid }
-                        ) { listIndex ->
-                            when (val currentPage = pagerList[listIndex]) {
-                                is MapItem.Note -> {
+                        ) { i ->
+                            when (val currentPage = pagerList[i]) {
+                                is MapEditorViewModel.MapItem.Note -> {
                                     NoteScreen(
                                         activity = currentActivity,
                                         note = currentPage,
@@ -300,10 +306,13 @@ fun MapEditorUI(
                                         pagerList = pagerList
                                     )
                                 }
-                                is MapItem.Space -> {
+                                is MapEditorViewModel.MapItem.Space -> {
                                     SpaceScreen(
                                         activity = currentActivity,
-                                        nodes = currentPage.nodeInfo
+                                        nodes = currentPage.nodeInfo,
+                                        pagerState = pagerState,
+                                        pagerListSize = pagerList.size,
+                                        currentPagerIndex = i
                                     )
                                 }
                             }
@@ -361,52 +370,3 @@ fun MapEditorUI(
         }
     }
 }
-//
-//@Composable
-//fun SpaceContent(
-//    nodes: List<MapEditorViewModel.SpaceNode>,
-//    camera: MapEditorViewModel.SpaceCameraState
-//) {
-//    nodes.forEach { node ->
-//        Box(
-//            modifier = Modifier
-//                .size(150.dp)
-//                .background(Color(0xFF2A2A2A))
-//        ) {
-//            Text(
-//                text = node.text,
-//                color = Color.White,
-//                modifier = Modifier.padding(8.dp)
-//            )
-//        }
-//    }
-//}
-//
-//@Composable
-//fun DottedBackground(
-//    modifier: Modifier = Modifier,
-//    dotColor: Color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.15f),
-//    dotRadius: Dp = 1.5.dp,
-//    spacing: Dp = 24.dp
-//) {
-//    Canvas(modifier = modifier) {
-//        val radiusPx = dotRadius.toPx()
-//        val spacingPx = spacing.toPx()
-//
-//        val cols = (size.width / spacingPx).toInt() + 1
-//        val rows = (size.height / spacingPx).toInt() + 1
-//
-//        for (x in 0..cols) {
-//            for (y in 0..rows) {
-//                drawCircle(
-//                    color = dotColor,
-//                    radius = radiusPx,
-//                    center = Offset(
-//                        x * spacingPx,
-//                        y * spacingPx
-//                    )
-//                )
-//            }
-//        }
-//    }
-//}

@@ -1,14 +1,15 @@
-package com.frozy.mindmap
+package com.frozy.mindmap.mapeditor
 
 import android.app.Application
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.AndroidViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.UUID
 
-class MapEditorViewModel(private val application: Application) : AndroidViewModel(application) {
+class MapEditorViewModel(application: Application) : AndroidViewModel(application) {
 
     //just in case I need context
     val context = getApplication<Application>()
@@ -22,33 +23,18 @@ class MapEditorViewModel(private val application: Application) : AndroidViewMode
     fun changePagerList(value: List<MapItem>) { _pagerList.value = value }
 
 
-    sealed class MapItem {
-        val uuid: UUID = UUID.randomUUID()
+    sealed class MapItem(open val uuid: UUID) {
 
         data class Note(
-            val id: Int,
-            val titleText: String,
-            val contentText: String
-        ) : MapItem() {
-            companion object {
-                private var nextId = 0
-
-                fun create(
-                     titleText: String = "",
-                     contentText: String = ""
-                ): Note {
-                    return Note(
-                        id = nextId++,
-                        titleText = titleText,
-                        contentText = contentText
-                    )
-                }
-            }
-        }
+            override val uuid: UUID = UUID.randomUUID(),
+            val titleText: String = "",
+            val contentText: String = ""
+        ) : MapItem(uuid)
 
         data class Space(
+            override val uuid: UUID = UUID.randomUUID(),
             val nodeInfo: List<SpaceNode> = emptyList()
-        ) : MapItem()
+        ) : MapItem(uuid)
 
 //        data class Image() : MapItem()
     }
@@ -57,33 +43,10 @@ class MapEditorViewModel(private val application: Application) : AndroidViewMode
         val id: Int,
         val uuid: UUID,
         val offset: Offset,
-        val hasBorder: Boolean,
+        val borderColor: Color?,
         val text: String
-    ){
-        //companion objects is kotlin's replacement for static
-        companion object {
-            private var nextId = 0
-
-            fun create(
-                offset: Offset = Offset.Zero,
-                hasBorder: Boolean = true,
-                text: String = ""
-            ): SpaceNode {
-                return SpaceNode(
-                    id = nextId++,
-                    uuid = UUID.randomUUID(),
-                    offset = offset,
-                    hasBorder = hasBorder,
-                    text = text
-                )
-            }
-        }
-    }
-
-    data class SpaceCameraState(
-        val offset: Offset = Offset.Zero,
-        val scale: Float = 1f
     )
+
 
     fun changeNoteTitle(noteUUID: UUID, newTitle: String) {
         _pagerList.value = _pagerList.value.map { item ->

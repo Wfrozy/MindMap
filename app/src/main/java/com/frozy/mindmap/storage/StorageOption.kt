@@ -1,13 +1,7 @@
-package com.frozy.mindmap
+package com.frozy.mindmap.storage
 
-import org.json.JSONObject
+import com.frozy.mindmap.R
 
-data class FileData(
-    val fileName: String = "",
-    val fileContent: JSONObject = JSONObject(),
-    val storage: StorageOption = StorageOption.DEVICE,
-    val timeStampID: Long = System.currentTimeMillis()
-)
 enum class StorageOption(val label: Int, val description: Int) {
     DEVICE(label = R.string.create_new_file_device_storage_label, description = R.string.create_new_file_device_storage_description),
     APP(label = R.string.create_new_file_app_storage_label,  description = R.string.create_new_file_app_storage_description)
