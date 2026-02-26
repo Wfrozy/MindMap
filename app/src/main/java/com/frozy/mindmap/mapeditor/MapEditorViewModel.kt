@@ -1,12 +1,13 @@
 package com.frozy.mindmap.mapeditor
 
 import android.app.Application
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.AndroidViewModel
+import com.frozy.mindmap.mapeditor.model.MapItem
+import com.frozy.mindmap.mapeditor.model.MapItemObject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import java.util.UUID
 
 class MapEditorViewModel(application: Application) : AndroidViewModel(application) {
@@ -18,49 +19,88 @@ class MapEditorViewModel(application: Application) : AndroidViewModel(applicatio
     val isEditorModeEnabled: StateFlow<Boolean> = _isEditorModeEnabled.asStateFlow()
     fun changeEditorModeState(value: Boolean) { _isEditorModeEnabled.value = value }
 
-    private val _pagerList = MutableStateFlow(value = emptyList<MapItem>())
-    val pagerList: StateFlow<List<MapItem>> = _pagerList.asStateFlow()
-    fun changePagerList(value: List<MapItem>) { _pagerList.value = value }
 
+    private val _mapItemPagerList = MutableStateFlow(value = emptyList<MapItem>())
+    val mapItemPagerList: StateFlow<List<MapItem>> = _mapItemPagerList.asStateFlow()
 
-    sealed class MapItem(open val uuid: UUID) {
-
-        data class Note(
-            override val uuid: UUID = UUID.randomUUID(),
-            val titleText: String = "",
-            val contentText: String = ""
-        ) : MapItem(uuid)
-
-        data class Space(
-            override val uuid: UUID = UUID.randomUUID(),
-            val nodeInfo: List<SpaceNode> = emptyList()
-        ) : MapItem(uuid)
-
-//        data class Image() : MapItem()
-    }
-
-    data class SpaceNode(
-        val id: Int,
-        val uuid: UUID,
-        val offset: Offset,
-        val borderColor: Color?,
-        val text: String
-    )
-
-
-    fun changeNoteTitle(noteUUID: UUID, newTitle: String) {
-        _pagerList.value = _pagerList.value.map { item ->
-            if (item is MapItem.Note && item.uuid == noteUUID) {
-                item.copy(titleText = newTitle)
-            } else item
+    fun miplAddMapItem(mapItem: MapItem){
+        _mapItemPagerList.update { list ->
+            list + mapItem
         }
     }
 
-    fun changeNoteContent(noteUUID: UUID, newContent: String) {
-        _pagerList.value = _pagerList.value.map { item ->
-            if (item is MapItem.Note && item.uuid == noteUUID) {
-                item.copy(contentText = newContent)
-            } else item
+    fun miplRemoveMapItem(mapItemUUID: UUID){
+        _mapItemPagerList.update { list ->
+            list.filterNot { it.uuid == mapItemUUID }
+        }
+    }
+
+    fun miplAddSpaceNodeToSpace(
+        mapItemUUID: UUID,
+        node: MapItemObject.SpaceNode
+    ){
+        _mapItemPagerList.update { list ->
+            list.map { mapItem ->
+                if (mapItem is MapItem.Space && mapItem.uuid == mapItemUUID) {
+                    return@map mapItem.copy(
+                        spaceNodeInfo = mapItem.spaceNodeInfo + node
+                    )
+                } else {
+                    return@map mapItem
+                }
+            }
+        }
+    }
+
+    fun miplRemoveSpaceNodeFromSpace(
+        mapItemUUID: UUID,
+        nodeUUID: UUID
+    ){
+        _mapItemPagerList.update { list ->
+            list.map { mapItem ->
+                if (mapItem is MapItem.Space && mapItem.uuid == mapItemUUID) {
+                    return@map mapItem.copy(
+                        spaceNodeInfo = mapItem.spaceNodeInfo.filterNot {
+                            it.uuid == nodeUUID
+                        }
+                    )
+                } else {
+                    return@map mapItem
+                }
+            }
+        }
+    }
+
+    fun miplChangeNoteTitle(
+        mapItemUUID: UUID,
+        newTitle: String
+    ) {
+        _mapItemPagerList.update { list ->
+            list.map { mapItem ->
+                if (mapItem is MapItem.Note && mapItem.uuid == mapItemUUID) {
+                    return@map mapItem.copy(
+                        titleText = newTitle
+                    )
+                } else {
+                    return@map mapItem
+                }
+            }
+        }
+    }
+
+    fun miplChangeNoteContent(
+        mapItemUUID: UUID,
+        newContent: String
+    ) {
+        _mapItemPagerList.update { list ->
+            list.map { mapItem ->
+                if (mapItem is MapItem.Note && mapItem.uuid == mapItemUUID) {
+
+                    return@map mapItem.copy(
+                        contentText = newContent
+                    )
+                } else return@map mapItem
+            }
         }
     }
 }

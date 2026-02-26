@@ -1,5 +1,6 @@
 package com.frozy.mindmap.mapeditor.space.ui
 
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -10,6 +11,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.vector.VectorPainter
 import androidx.compose.ui.unit.dp
+import com.frozy.mindmap.mapeditor.model.MapItemObject
 import com.frozy.mindmap.mapeditor.space.SpaceCameraState
 import org.jetbrains.annotations.TestOnly
 import kotlin.math.ceil
@@ -70,14 +72,6 @@ fun DrawScope.drawLeftBoundaryFade(
         topLeft = Offset(x = 0f, y = 0f),
         size = Size(width + overscroll, size.height)
     )
-
-//    //todo remove this temporary debug border
-//    drawRect(
-//        color = Color.Blue,
-//        topLeft = Offset.Zero,
-//        size = Size(width + overscroll, size.height),
-//        style = Stroke(width = 2f)
-//    )
 }
 
 fun DrawScope.drawRightBoundaryFade(
@@ -98,14 +92,6 @@ fun DrawScope.drawRightBoundaryFade(
         topLeft = Offset(x = size.width - width - overscroll, y = 0f),
         size = Size(width + overscroll, size.height)
     )
-
-//    //todo remove this temporary debug border
-//    drawRect(
-//        color = Color.Blue,
-//        topLeft = Offset(x = size.width - width - overscroll, y = 0f),
-//        size = Size(width + overscroll, size.height),
-//        style = Stroke(width = 2f)
-//    )
 }
 
 
@@ -130,16 +116,26 @@ fun DrawScope.drawBoundaryArrow(
     }
 }
 
-@TestOnly
-fun DrawScope.reddottest(
+fun DrawScope.drawNode(
+    node: MapItemObject.SpaceNode,
     camera: SpaceCameraState
-){
-    val zeroX = 0f * camera.scale + camera.offset.x
-    val zeroY = 0f * camera.scale + camera.offset.y
+) {
+    val scaledOffset = (node.offset * camera.scale) + camera.offset
+    val scaledWidth = node.width * camera.scale
+    val scaledHeight = node.height * camera.scale
 
-    drawCircle(
-        color = Color.Red,
-        radius = 8.dp.toPx() * camera.scale,
-        center = Offset(x = zeroX, y = zeroY)
+    drawRoundRect(
+        color = node.backgroundColor ?: Color.Transparent,
+        topLeft = scaledOffset,
+        size = Size(scaledWidth, scaledHeight),
+        cornerRadius = CornerRadius(x = 16f, y = 16f)
+    )
+
+    drawRoundRect(
+        color = node.borderColor ?: Color.Transparent,
+        style = Stroke(width = 3f),
+        topLeft = scaledOffset,
+        size = Size(scaledWidth, scaledHeight),
+        cornerRadius = CornerRadius(x = 16f, y = 16f)
     )
 }

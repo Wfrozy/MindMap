@@ -1,7 +1,6 @@
 package com.frozy.mindmap.mapeditor.space.ui
 
 import android.app.Activity
-import android.util.Log
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -37,9 +36,10 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.frozy.mindmap.R
-import com.frozy.mindmap.mapeditor.MapEditorViewModel
+import com.frozy.mindmap.mapeditor.model.MapItemObject
 import com.frozy.mindmap.mapeditor.space.SpaceCameraState
 import com.frozy.mindmap.ui.components.BottomSheetItem
+import com.frozy.mindmap.ui.util.hideSystemStatusBar
 import kotlinx.coroutines.launch
 
 const val MIN_WORLD_X = -2000f
@@ -51,14 +51,16 @@ const val DRAG_THRESHOLD = 50f
 @Composable
 fun SpaceScreen(
     activity: Activity?,
-    nodes: List<MapEditorViewModel.SpaceNode>,
+    nodes: List<MapItemObject.SpaceNode>,
+    onAddNode: (Size, SpaceCameraState) -> Unit,
     pagerState: PagerState,
-    pagerListSize: Int,
-    currentPagerIndex: Int
 ) {
     val coroutineScope = rememberCoroutineScope()
 
     var camera by remember { mutableStateOf(value = SpaceCameraState()) }
+
+    //starts at 0 but then gets the value once a Canvas gets drawn
+    var canvasSize by remember { mutableStateOf(value = Size.Zero) }
 
     val sheetState = rememberModalBottomSheetState()
     var isNodeSheetVisible by remember { mutableStateOf(value = false) }
@@ -67,8 +69,7 @@ fun SpaceScreen(
 //    val overscrollAnim = remember { Animatable(initialValue = 0f) }
 //    val overscrollAnimValue = overscrollAnim.value
 
-    //starts at 0 but then gets the value once the Canvas gets drawn
-    var canvasSize by remember { mutableStateOf(value = Size.Zero) }
+
     val leftArrowPainter = rememberVectorPainter(image = Icons.AutoMirrored.Filled.ArrowBack)
     val rightArrowPainter = rememberVectorPainter(image = Icons.AutoMirrored.Filled.ArrowForward)
 
@@ -111,6 +112,7 @@ fun SpaceScreen(
     )
 
     LaunchedEffect(key1 = pagerState.currentPage) {
+        activity?.hideSystemStatusBar()
         if (canvasSize != Size.Zero) {
             camera = camera.copy(
                 offset = Offset(
@@ -124,9 +126,8 @@ fun SpaceScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .pointerInput(key1 = Unit){
+            .pointerInput(key1 = Unit) {
                 detectTapGestures(onLongPress = {
-                    Log.d("hi", "it worked")
                     coroutineScope.launch {
                         sheetState.show()
                     }.invokeOnCompletion {
@@ -158,12 +159,13 @@ fun SpaceScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .onSizeChanged { newSize ->
-                    //when the canvas is loaded, update the canvasSize variable
-                    //this setup is needed because canvasSize is needed before the Canvas
-                    canvasSize = Size(
+                    val newSize = Size(
                         width = newSize.width.toFloat(),
                         height = newSize.height.toFloat()
                     )
+                    //when the canvas is loaded, update the canvasSize
+                    //this setup is needed because canvasSize is needed before the Canvas is loaded
+                    canvasSize = newSize
 
                     if (camera.offset == Offset.Zero) {
                         camera = camera.copy(
@@ -185,6 +187,10 @@ fun SpaceScreen(
                 dotColor = dotColor,
             )
 
+            for (node in nodes) {
+                drawNode(node, camera)
+            }
+            
             if (leftAlpha > 0f) {
                 drawLeftBoundaryFade(
                     color = edgeColor,
@@ -232,10 +238,8 @@ fun SpaceScreen(
                     )
                 }
             }
-
-            reddottest(camera)
         }
-        BoundaryInteractionArea(
+        BoundaryHitbox(
             width = fadeWidth,
             isAtLeftBoundary = true,
             overscroll = currentOverscrollValue,
@@ -255,7 +259,7 @@ fun SpaceScreen(
             }
         }
 
-        BoundaryInteractionArea(
+        BoundaryHitbox(
             width = fadeWidth,
             isAtRightBoundary = true,
             overscroll = currentOverscrollValue,
@@ -293,7 +297,7 @@ fun SpaceScreen(
                     contentDescription = stringResource(R.string.contentDescription_map_editor_add_new_node),
                     text = stringResource(R.string.map_editor_add_new_node),
                     itemOnClick = {
-                        //todo
+                        onAddNode(canvasSize, camera)
                         coroutineScope.launch {
                             sheetState.hide()
                         }.invokeOnCompletion {

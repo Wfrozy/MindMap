@@ -55,10 +55,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -66,11 +67,13 @@ import androidx.compose.ui.unit.dp
 import com.frozy.mindmap.ui.components.BottomSheetItem
 import com.frozy.mindmap.mapeditor.note.ui.NoteScreen
 import com.frozy.mindmap.R
+import com.frozy.mindmap.mapeditor.model.MapItem
+import com.frozy.mindmap.mapeditor.model.MapItemObject
+import com.frozy.mindmap.mapeditor.space.SpaceCameraState
 import com.frozy.mindmap.mapeditor.space.ui.SpaceScreen
 import com.frozy.mindmap.ui.util.hideSystemStatusBar
 import com.frozy.mindmap.ui.theme.MindMapTheme
 import com.frozy.mindmap.ui.theme.MindMapTypography
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.collections.plus
 
@@ -121,17 +124,27 @@ fun MapEditorUI(
     val currentActivity = LocalActivity.current
     val isEditorModeEnabled by mevm.isEditorModeEnabled.collectAsState()
 
-    val pagerList by mevm.pagerList.collectAsState()
-    val pagerState = rememberPagerState(pageCount = { pagerList.size })
+    val mapItemPagerList by mevm.mapItemPagerList.collectAsState()
+
+    //default SpaceNode parameters when creating a node in a Space
+    val defaultNodeWidth = 300f
+    val defaultNodeHeight = 150f
+    val defaultNodeBorderColor = MaterialTheme.colorScheme.surfaceContainer
+    val defaultBackgroundColor = MaterialTheme.colorScheme.background
+    val defaultNodeText = "Type here"
+    val defaultNodeFontSize = MaterialTheme.typography.bodyMedium.fontSize
+
+    val pagerState = rememberPagerState(pageCount = { mapItemPagerList.size })
     var isHorizontalPagerVisible by remember { mutableStateOf(value = false) }
+
 
     BackHandler(enabled = isEditorModeEnabled) {
         mevm.changeEditorModeState(value = false)
     }
 
-    LaunchedEffect(pagerList.size) {
-        if (pagerList.isNotEmpty()){
-            pagerState.animateScrollToPage(pagerList.lastIndex)
+    LaunchedEffect(mapItemPagerList.size) {
+        if (mapItemPagerList.isNotEmpty()){
+            pagerState.animateScrollToPage(mapItemPagerList.lastIndex)
             isHorizontalPagerVisible = true
         } else isHorizontalPagerVisible = false
     }
@@ -156,9 +169,9 @@ fun MapEditorUI(
             ) {
                 BottomSheetItem(
                     icon = Icons.Default.Lightbulb,
-                    text = stringResource(R.string.map_editor_new_note),
+                    text = stringResource(id = R.string.map_editor_new_note),
                     itemOnClick = {
-                        mevm.changePagerList(value = pagerList + MapEditorViewModel.MapItem.Note())
+                        mevm.miplAddMapItem(mapItem = MapItem.Note())
                         coroutineScope.launch {
                             sheetState.hide()
                         }.invokeOnCompletion {
@@ -170,7 +183,7 @@ fun MapEditorUI(
                     icon = Icons.Default.Cable,
                     text = stringResource(R.string.map_editor_new_space),
                     itemOnClick = {
-                        mevm.changePagerList(value = pagerList + MapEditorViewModel.MapItem.Space())
+                        mevm.miplAddMapItem(mapItem = MapItem.Space())
                         coroutineScope.launch {
                             sheetState.hide()
                         }.invokeOnCompletion {
@@ -180,7 +193,7 @@ fun MapEditorUI(
                 )
                 BottomSheetItem(
                     icon = Icons.Default.AddPhotoAlternate,
-                    text = stringResource(R.string.map_editor_add_image),
+                    text = stringResource(id = R.string.map_editor_add_image),
                     includeSpacer = false,
                     //todo [BIG] import image
                     itemOnClick = {
@@ -195,7 +208,7 @@ fun MapEditorUI(
         }
     }
     Scaffold(
-        contentWindowInsets = WindowInsets(0),
+        contentWindowInsets = WindowInsets(left = 0),
         topBar = {
             if (!isEditorModeEnabled) {
                 TopAppBar(
@@ -254,12 +267,12 @@ fun MapEditorUI(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Construction,
-                            contentDescription = stringResource(R.string.contentDescription_add_new_content_in_map_editor)
+                            contentDescription = stringResource(id = R.string.contentDescription_add_new_content_in_map_editor)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(height = 8.dp))
 
                 FloatingActionButton(
                     onClick = {
@@ -295,24 +308,45 @@ fun MapEditorUI(
                             modifier = Modifier.fillMaxWidth(),
                             pageSpacing = 69.dp,
                             beyondViewportPageCount = 1,
-                            key = { listIndex -> pagerList[listIndex].uuid }
+                            key = { listIndex -> mapItemPagerList[listIndex].uuid }
                         ) { i ->
-                            when (val currentPage = pagerList[i]) {
-                                is MapEditorViewModel.MapItem.Note -> {
+                            when (val currentPage = mapItemPagerList[i]) {
+                                is MapItem.Note -> {
                                     NoteScreen(
                                         activity = currentActivity,
                                         note = currentPage,
                                         mevm = mevm,
-                                        pagerList = pagerList
+                                        pagerList = mapItemPagerList
                                     )
                                 }
-                                is MapEditorViewModel.MapItem.Space -> {
+                                is MapItem.Space -> {
                                     SpaceScreen(
                                         activity = currentActivity,
-                                        nodes = currentPage.nodeInfo,
+                                        nodes = currentPage.spaceNodeInfo,
                                         pagerState = pagerState,
-                                        pagerListSize = pagerList.size,
-                                        currentPagerIndex = i
+                                        onAddNode = { canvasSize, camera ->
+                                            val screenCenter = Offset(
+                                                x = canvasSize.width / 2f,
+                                                y = canvasSize.height / 2f
+                                            )
+
+                                            val defaultNodeOffset = (screenCenter - camera.offset) / camera.scale
+
+                                            val defaultNode = MapItemObject.SpaceNode(
+                                                offset = defaultNodeOffset,
+                                                width = defaultNodeWidth,
+                                                height = defaultNodeHeight,
+                                                borderColor = defaultNodeBorderColor,
+                                                backgroundColor = defaultBackgroundColor,
+                                                text = defaultNodeText,
+                                                fontSize = defaultNodeFontSize
+                                            )
+
+                                            mevm.miplAddSpaceNodeToSpace(
+                                                mapItemUUID = currentPage.uuid,
+                                                node = defaultNode
+                                            )
+                                        }
                                     )
                                 }
                             }
