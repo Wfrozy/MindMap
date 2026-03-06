@@ -1,4 +1,4 @@
-package com.frozy.mindmap.mapeditor.space.ui
+package com.frozy.mindmap.mapeditor.space.ui.components
 
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
@@ -14,7 +14,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
-import com.frozy.mindmap.mapeditor.space.SpaceCameraState
+import com.frozy.mindmap.mapeditor.model.SpaceCameraState
 
 @Composable
 fun BoxScope.BoundaryHitbox(

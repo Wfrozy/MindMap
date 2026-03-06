@@ -15,6 +15,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,25 +28,37 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.frozy.mindmap.R
-import com.frozy.mindmap.ui.util.hideSystemStatusBar
+import com.frozy.mindmap.ui.utils.hideSystemStatusBar
 import com.frozy.mindmap.mapeditor.MapEditorViewModel
 import com.frozy.mindmap.mapeditor.model.MapItem
-import com.frozy.mindmap.ui.util.showSystemStatusBar
+import com.frozy.mindmap.ui.utils.showSystemStatusBar
+import java.util.UUID
 
 //todo [medium] add more customization features to the text
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun NoteScreen(
     activity: Activity?,
-    note: MapItem.Note,
     mevm: MapEditorViewModel,
+    mapItemUUID: UUID,
     pagerList: List<MapItem>
 ) {
+    val mipl = mevm.mapItemPagerList.collectAsState()
+    val thisNote by remember(key1 = mipl) {
+        derivedStateOf {
+            mipl.value.first { mapItem ->
+                mapItem is MapItem.Note && mapItem.uuid == mapItemUUID
+            } as MapItem.Note
+        }
+    }
+
+
+
     var isTextFieldFocused by remember { mutableStateOf(value = false) }
     val lazyListState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
-    var title by remember(note.uuid) { mutableStateOf(note.titleText) }
-    var content by remember(note.uuid) { mutableStateOf(note.contentText) }
+    var title by remember(thisNote.uuid) { mutableStateOf(thisNote.titleText) }
+    var content by remember(thisNote.uuid) { mutableStateOf(thisNote.contentText) }
 
     BackHandler(enabled = isTextFieldFocused) {
         focusManager.clearFocus(force = true)
@@ -77,7 +91,7 @@ fun NoteScreen(
                             activity?.hideSystemStatusBar()
                         }
                         mevm.miplChangeNoteTitle(
-                            mapItemUUID = note.uuid,
+                            mapItemUUID = thisNote.uuid,
                             newTitle = title
                         )
                     },
@@ -110,7 +124,7 @@ fun NoteScreen(
                             activity?.hideSystemStatusBar()
                         }
                         mevm.miplChangeNoteContent(
-                            mapItemUUID = note.uuid,
+                            mapItemUUID = thisNote.uuid,
                             newContent = content
                         )
                     },

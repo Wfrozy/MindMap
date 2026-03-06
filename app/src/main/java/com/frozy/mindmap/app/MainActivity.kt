@@ -12,7 +12,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.contract.ActivityResultContracts.CreateDocument
 import androidx.activity.viewModels
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -68,13 +67,13 @@ import com.frozy.mindmap.storage.FileData
 import com.frozy.mindmap.storage.FileIO
 import com.frozy.mindmap.R
 import com.frozy.mindmap.storage.StorageOption
-import com.frozy.mindmap.storage.util.applyBasicContent
-import com.frozy.mindmap.storage.util.sanitizeAndEnsureJsonExtension
+import com.frozy.mindmap.storage.utils.applyBasicContent
+import com.frozy.mindmap.storage.utils.sanitizeAndEnsureJsonExtension
 import com.frozy.mindmap.ui.theme.MindMapShapes
 import com.frozy.mindmap.ui.theme.MindMapTheme
 import com.frozy.mindmap.ui.theme.MindMapTypography
-import com.frozy.mindmap.ui.util.openSelectedMap
-import com.frozy.mindmap.ui.util.openSettingsActivity
+import com.frozy.mindmap.ui.utils.openSelectedMap
+import com.frozy.mindmap.ui.utils.openSettingsActivity
 import kotlinx.coroutines.launch
 import org.json.JSONException
 import org.json.JSONObject

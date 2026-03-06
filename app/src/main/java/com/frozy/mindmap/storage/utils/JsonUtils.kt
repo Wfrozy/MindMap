@@ -1,4 +1,4 @@
-package com.frozy.mindmap.storage.util
+package com.frozy.mindmap.storage.utils
 
 import com.frozy.mindmap.storage.FileData
 import com.frozy.mindmap.storage.StorageOption

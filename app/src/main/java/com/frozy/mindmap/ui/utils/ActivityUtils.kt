@@ -1,4 +1,4 @@
-package com.frozy.mindmap.ui.util
+package com.frozy.mindmap.ui.utils
 
 import android.content.Context
 import android.content.Intent

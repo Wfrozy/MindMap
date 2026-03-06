@@ -1,9 +1,10 @@
-package com.frozy.mindmap.mapeditor.space.ui
+package com.frozy.mindmap.mapeditor.space.ui.components
 
 import android.app.Activity
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
@@ -14,7 +15,11 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LocalActivity
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -22,6 +27,8 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,13 +41,20 @@ import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import com.frozy.mindmap.R
+import com.frozy.mindmap.mapeditor.MapEditorViewModel
+import com.frozy.mindmap.mapeditor.model.MapItem
 import com.frozy.mindmap.mapeditor.model.MapItemObject
-import com.frozy.mindmap.mapeditor.space.SpaceCameraState
+import com.frozy.mindmap.mapeditor.model.NodeResizeHandle
+import com.frozy.mindmap.mapeditor.model.ResizeState
+import com.frozy.mindmap.mapeditor.model.SpaceCameraState
+import com.frozy.mindmap.mapeditor.space.ui.utils.detectResizeHandleOrNull
 import com.frozy.mindmap.ui.components.BottomSheetItem
-import com.frozy.mindmap.ui.util.hideSystemStatusBar
+import com.frozy.mindmap.ui.utils.hideSystemStatusBar
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 const val MIN_WORLD_X = -2000f
 const val MAX_WORLD_X = 2000f
@@ -51,11 +65,33 @@ const val DRAG_THRESHOLD = 50f
 @Composable
 fun SpaceScreen(
     activity: Activity?,
-    nodes: List<MapItemObject.SpaceNode>,
-    onAddNode: (Size, SpaceCameraState) -> Unit,
+    mevm: MapEditorViewModel,
+    mapItemUUID: UUID,
+    onAddNode: (Size, SpaceCameraState, Offset) -> Unit,
+    onNodeHit: (MapItemObject.SpaceNode, UUID) -> Unit,
     pagerState: PagerState,
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val mipl = mevm.mapItemPagerList.collectAsState()
+
+    var resizeState by remember { mutableStateOf<ResizeState?>(value = null) }
+
+    val thisSpace by remember(key1 = mipl) {
+        derivedStateOf {
+            mipl.value.first { mapItem ->
+                mapItem is MapItem.Space && mapItem.uuid == mapItemUUID
+            } as MapItem.Space
+        }
+    }
+
+    val nodes by remember(key1 = mipl) {
+        derivedStateOf {
+            (mipl.value.first { mapItem ->
+                mapItem is MapItem.Space && mapItem.uuid == mapItemUUID
+            } as MapItem.Space).spaceNodeInfo
+        }
+    }
+
 
     var camera by remember { mutableStateOf(value = SpaceCameraState()) }
 
@@ -70,12 +106,20 @@ fun SpaceScreen(
 //    val overscrollAnimValue = overscrollAnim.value
 
 
-    val leftArrowPainter = rememberVectorPainter(image = Icons.AutoMirrored.Filled.ArrowBack)
-    val rightArrowPainter = rememberVectorPainter(image = Icons.AutoMirrored.Filled.ArrowForward)
+    val boundaryLeftArrowPainter = rememberVectorPainter(image = Icons.AutoMirrored.Filled.ArrowBack)
+    val boundaryRightArrowPainter = rememberVectorPainter(image = Icons.AutoMirrored.Filled.ArrowForward)
+
+    val nodeArrowUpPainter = rememberVectorPainter(image = Icons.Default.KeyboardArrowUp)
+    val nodeArrowDownPainter = rememberVectorPainter(image = Icons.Default.KeyboardArrowDown)
+    val nodeArrowLeftPainter = rememberVectorPainter(image = Icons.AutoMirrored.Filled.KeyboardArrowLeft)
+    val nodeArrowRightPainter = rememberVectorPainter(image = Icons.AutoMirrored.Filled.KeyboardArrowRight)
 
     val dotColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.15f)
     val edgeColor = MaterialTheme.colorScheme.onBackground
     val arrowColor = MaterialTheme.colorScheme.onSurface
+    val selectedNodeBorderColor = MaterialTheme.colorScheme.tertiary
+
+    val textMeasurer = rememberTextMeasurer()
 
     val leftEdgeCam = -camera.offset.x / camera.scale
     val rightEdgeCam = leftEdgeCam + canvasSize.width / camera.scale
@@ -90,6 +134,10 @@ fun SpaceScreen(
     val currentMinCameraX = canvasSize.width - MAX_WORLD_X * camera.scale
     val currentMaxCameraX = -MIN_WORLD_X * camera.scale
 
+    //variable that stores the offset of the last long press on the Space
+    //used for calculating the spawn position of nodes when you create them
+    var longPressOffset by remember { mutableStateOf(value = Offset.Zero) }
+
     val currentOverscrollValue =
         when {
             camera.offset.x < currentMinCameraX -> currentMinCameraX - camera.offset.x
@@ -97,14 +145,14 @@ fun SpaceScreen(
             else -> 0f
         }
 
-    val leftAlpha by animateFloatAsState(
+    val leftBoundaryAlpha by animateFloatAsState(
         targetValue =
             if (isCameraAtLeftBoundary) 0.25f
             else 0f,
         animationSpec = tween(durationMillis = 300)
     )
 
-    val rightAlpha by animateFloatAsState(
+    val rightBoundaryAlpha by animateFloatAsState(
         targetValue =
             if (isCameraAtRightBoundary) 0.25f
             else 0f,
@@ -127,16 +175,42 @@ fun SpaceScreen(
         modifier = Modifier
             .fillMaxSize()
             .pointerInput(key1 = Unit) {
-                detectTapGestures(onLongPress = {
-                    coroutineScope.launch {
-                        sheetState.show()
-                    }.invokeOnCompletion {
-                        isNodeSheetVisible = true
+                detectTapGestures(
+                    //long press -> open up bottom sheet
+                    onLongPress = { offset ->
+                        longPressOffset = offset
+                        coroutineScope.launch {
+                            sheetState.show()
+                        }.invokeOnCompletion {
+                            isNodeSheetVisible = true
+                        }
+                    },
+                    //tap -> tap is on a node -> interact with node
+                    onTap = { tapOffset ->
+
+                        val tapWorldPos = (tapOffset - camera.offset) / camera.scale
+
+                        //checks to see if the tap coordinates are within the coordinate space of a node
+                        val nodeHitOrNull = nodes.firstOrNull { node ->
+                            return@firstOrNull tapWorldPos.x in node.offset.x..(node.offset.x + node.width) &&
+                                    tapWorldPos.y in node.offset.y..(node.offset.y + node.height)
+                        }
+
+
+                        if (nodeHitOrNull != null) {
+                            onNodeHit(nodeHitOrNull, nodeHitOrNull.uuid)
+                        } else {
+                            mevm.miplDeselectAllSpaceNodes(
+                                mapItemUUID = thisSpace.uuid
+                            )
+                            resizeState = null
+                        }
                     }
-                })
+                )
             }
-            //todo [small for now] make camera not reset after recomposition
             .pointerInput(key1 = Unit) {
+                //drag -> move the camera around
+                //pinch -> change camera zoom
                 detectTransformGestures { centroid, pan, zoom, _ ->
                     val newScale = (camera.scale * zoom).coerceIn(0.4f, 3f)
                     val scaleChange = newScale / camera.scale
@@ -152,7 +226,94 @@ fun SpaceScreen(
                         offset = Offset(x = restrictedOffsetX, y = rawOffset.y),
                         scale = newScale
                     )
+                    activity?.hideSystemStatusBar()
                 }
+            }
+            .pointerInput(key1 = nodes, key2 = camera) {
+                detectDragGestures(
+                    onDragStart = { pointer ->
+
+                        val node = nodes.lastOrNull { node ->
+                            detectResizeHandleOrNull(tap = pointer, node, camera) != null
+                        }
+
+                        if (node != null) {
+
+                            val handle = detectResizeHandleOrNull(tap = pointer, node, camera)!!
+
+                            resizeState = ResizeState(
+                                nodeId = node.uuid,
+                                handle = handle,
+                                startPointer = pointer,
+                                startWidth = node.width,
+                                startHeight = node.height,
+                                startOffset = node.offset
+                            )
+                        }
+                    },
+                    onDrag = { change, _ ->
+
+                        val state = resizeState ?: return@detectDragGestures
+
+                        val nodeIndex = nodes.indexOfFirst { it.uuid == state.nodeId }
+                        val node = nodes[nodeIndex]
+
+                        val dx = change.position.x - state.startPointer.x
+                        val dy = change.position.y - state.startPointer.y
+
+                        val newNode = when (state.handle) {
+
+                            NodeResizeHandle.BottomRight -> {
+                                node.copy(
+                                    width = state.startWidth + dx,
+                                    height = state.startHeight + dy
+                                )
+                            }
+
+                            NodeResizeHandle.BottomLeft -> {
+                                node.copy(
+                                    width = state.startWidth - dx,
+                                    height = state.startHeight + dy,
+                                    offset = Offset(
+                                        x = state.startOffset.x + dx,
+                                        y = state.startOffset.y
+                                    )
+                                )
+                            }
+
+                            NodeResizeHandle.TopRight -> {
+                                node.copy(
+                                    width = state.startWidth + dx,
+                                    height = state.startHeight - dy,
+                                    offset = Offset(
+                                        x = state.startOffset.x,
+                                        y = state.startOffset.y + dy
+                                    )
+                                )
+                            }
+
+                            NodeResizeHandle.TopLeft -> {
+                                node.copy(
+                                    width = state.startWidth - dx,
+                                    height = state.startHeight - dy,
+                                    offset = Offset(
+                                        x = state.startOffset.x + dx,
+                                        y = state.startOffset.y + dy
+                                    )
+                                )
+                            }
+                        }
+
+                        mevm.miplChangeSpaceNode(
+                            mapItemUUID = thisSpace.uuid,
+                            nodeUUID = nodes[nodeIndex].uuid,
+                            newNode = newNode
+                        )
+                    },
+                    onDragEnd = {
+                        resizeState = null
+                    }
+                )
             }
     ) {
         Canvas(
@@ -188,14 +349,23 @@ fun SpaceScreen(
             )
 
             for (node in nodes) {
-                drawNode(node, camera)
+                drawNode(
+                    node = node,
+                    camera = camera,
+                    selectedNodeBorderColor = selectedNodeBorderColor,
+                    arrowUpPainter = nodeArrowUpPainter,
+                    arrowDownPainter = nodeArrowDownPainter,
+                    arrowLeftPainter = nodeArrowLeftPainter,
+                    arrowRightPainter = nodeArrowRightPainter,
+                    textMeasurer = textMeasurer
+                )
             }
             
-            if (leftAlpha > 0f) {
+            if (leftBoundaryAlpha > 0f) {
                 drawLeftBoundaryFade(
                     color = edgeColor,
                     width = fadeWidthPx,
-                    alpha = leftAlpha,
+                    alpha = leftBoundaryAlpha,
                     overscroll = currentOverscrollValue
                 )
 
@@ -204,8 +374,8 @@ fun SpaceScreen(
 
                 if (pagerState.canScrollBackward) {
                     drawBoundaryArrow(
-                        painter = leftArrowPainter,
-                        alpha = leftAlpha,
+                        painter = boundaryLeftArrowPainter,
+                        alpha = leftBoundaryAlpha,
                         translateLeft = arrowX,
                         translateTop = arrowY,
                         drawSizeWidth = arrowSizePx,
@@ -215,11 +385,11 @@ fun SpaceScreen(
                 }
             }
 
-            if (rightAlpha > 0f) {
+            if (rightBoundaryAlpha > 0f) {
                 drawRightBoundaryFade(
                     color = edgeColor,
                     width = fadeWidthPx,
-                    alpha = rightAlpha,
+                    alpha = rightBoundaryAlpha,
                     overscroll = currentOverscrollValue,
                 )
 
@@ -228,8 +398,8 @@ fun SpaceScreen(
 
                 if (pagerState.canScrollForward) {
                     drawBoundaryArrow(
-                        painter = rightArrowPainter,
-                        alpha = rightAlpha,
+                        painter = boundaryRightArrowPainter,
+                        alpha = rightBoundaryAlpha,
                         translateLeft = arrowX,
                         translateTop = arrowY,
                         drawSizeWidth = arrowSizePx,
@@ -287,6 +457,7 @@ fun SpaceScreen(
                     sheetState.hide()
                 }.invokeOnCompletion {
                     isNodeSheetVisible = false
+                    activity?.hideSystemStatusBar()
                 }
             },
             sheetState = sheetState
@@ -294,28 +465,30 @@ fun SpaceScreen(
             Column(modifier = Modifier.padding(all = 16.dp)) {
                 BottomSheetItem(
                     icon = Icons.Default.LocalActivity,
-                    contentDescription = stringResource(R.string.contentDescription_map_editor_add_new_node),
-                    text = stringResource(R.string.map_editor_add_new_node),
+                    contentDescription = stringResource(id = R.string.contentDescription_map_editor_add_new_node),
+                    text = stringResource(id = R.string.map_editor_add_new_node),
                     itemOnClick = {
-                        onAddNode(canvasSize, camera)
+                        onAddNode(canvasSize, camera, longPressOffset)
                         coroutineScope.launch {
                             sheetState.hide()
                         }.invokeOnCompletion {
                             isNodeSheetVisible = false
+                            activity?.hideSystemStatusBar()
                         }
                     },
                 )
 
                 BottomSheetItem(
                     icon = Icons.Default.AddPhotoAlternate,
-                    contentDescription = stringResource(R.string.map_editor_add_image),
-                    text = stringResource(R.string.map_editor_add_image),
+                    contentDescription = stringResource(id = R.string.map_editor_add_image),
+                    text = stringResource(id = R.string.map_editor_add_image),
                     itemOnClick = {
                         //todo
                         coroutineScope.launch {
                             sheetState.hide()
                         }.invokeOnCompletion {
                             isNodeSheetVisible = false
+                            activity?.hideSystemStatusBar()
                         }
                     },
                     includeSpacer = false

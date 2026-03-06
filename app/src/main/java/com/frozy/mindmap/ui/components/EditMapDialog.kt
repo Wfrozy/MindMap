@@ -17,8 +17,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.window.DialogProperties
 import com.frozy.mindmap.R
 import com.frozy.mindmap.storage.FileData
-import com.frozy.mindmap.storage.util.MAX_MAP_NAME_LENGTH
-import com.frozy.mindmap.storage.util.checkIfFileNameIsInvalid
+import com.frozy.mindmap.storage.utils.checkIfFileNameIsInvalid
 
 @Composable
 fun EditMapDialog(

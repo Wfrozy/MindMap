@@ -1,6 +1,7 @@
 package com.frozy.mindmap.mapeditor
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import com.frozy.mindmap.mapeditor.model.MapItem
 import com.frozy.mindmap.mapeditor.model.MapItemObject
@@ -44,6 +45,69 @@ class MapEditorViewModel(application: Application) : AndroidViewModel(applicatio
                 if (mapItem is MapItem.Space && mapItem.uuid == mapItemUUID) {
                     return@map mapItem.copy(
                         spaceNodeInfo = mapItem.spaceNodeInfo + node
+                    )
+                } else {
+                    return@map mapItem
+                }
+            }
+        }
+    }
+
+    fun miplChangeSpaceNode(
+        mapItemUUID: UUID,
+        nodeUUID: UUID,
+        newNode: MapItemObject.SpaceNode
+    ){
+        _mapItemPagerList.update { list ->
+            list.map { mapItem ->
+                if(mapItem is MapItem.Space && mapItem.uuid == mapItemUUID){
+                    return@map mapItem.copy(
+                        spaceNodeInfo = mapItem.spaceNodeInfo.map { node ->
+                            if (node.uuid == nodeUUID) {
+                                return@map newNode
+                            } else return@map node
+                        }
+                    )
+                } else {
+                    return@map mapItem
+                }
+            }
+        }
+    }
+
+    fun miplSelectSpaceNode(
+        mapItemUUID: UUID,
+        nodeUUID: UUID
+    ) {
+        _mapItemPagerList.update { list ->
+            list.map { mapItem ->
+                if (mapItem is MapItem.Space && mapItem.uuid == mapItemUUID) {
+                    mapItem.copy(
+                        spaceNodeInfo = mapItem.spaceNodeInfo.map { node ->
+                            return@map node.copy(
+                                isSelected = node.uuid == nodeUUID
+                            )
+                        }
+                    )
+                } else {
+                    return@map mapItem
+                }
+            }
+        }
+    }
+
+    fun miplDeselectAllSpaceNodes(
+        mapItemUUID: UUID,
+    ) {
+        _mapItemPagerList.update { list ->
+            list.map { mapItem ->
+                if (mapItem is MapItem.Space && mapItem.uuid == mapItemUUID) {
+                    mapItem.copy(
+                        spaceNodeInfo = mapItem.spaceNodeInfo.map { node ->
+                            return@map node.copy(
+                                isSelected = false
+                            )
+                        }
                     )
                 } else {
                     return@map mapItem

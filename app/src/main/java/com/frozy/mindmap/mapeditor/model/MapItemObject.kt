@@ -24,6 +24,7 @@ sealed class MapItemObject(
         override val offset: Offset,
         val width: Float,
         val height: Float,
+        val isSelected: Boolean = false,
         val borderColor: Color?, //leave null for no border
         val backgroundColor: Color?,
         val text: String,

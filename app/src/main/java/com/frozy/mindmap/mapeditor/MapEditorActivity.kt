@@ -59,7 +59,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -69,13 +68,12 @@ import com.frozy.mindmap.mapeditor.note.ui.NoteScreen
 import com.frozy.mindmap.R
 import com.frozy.mindmap.mapeditor.model.MapItem
 import com.frozy.mindmap.mapeditor.model.MapItemObject
-import com.frozy.mindmap.mapeditor.space.SpaceCameraState
-import com.frozy.mindmap.mapeditor.space.ui.SpaceScreen
-import com.frozy.mindmap.ui.util.hideSystemStatusBar
+import com.frozy.mindmap.mapeditor.space.ui.components.SpaceScreen
+import com.frozy.mindmap.ui.utils.hideSystemStatusBar
 import com.frozy.mindmap.ui.theme.MindMapTheme
 import com.frozy.mindmap.ui.theme.MindMapTypography
+import com.frozy.mindmap.ui.utils.lighten
 import kotlinx.coroutines.launch
-import kotlin.collections.plus
 
 //todo [small] add cool transition between main activity and this activity
 //todo [small] make it so the system bars don't pop up whe you switch apps
@@ -127,10 +125,10 @@ fun MapEditorUI(
     val mapItemPagerList by mevm.mapItemPagerList.collectAsState()
 
     //default SpaceNode parameters when creating a node in a Space
-    val defaultNodeWidth = 300f
+    val defaultNodeWidth = 450f
     val defaultNodeHeight = 150f
-    val defaultNodeBorderColor = MaterialTheme.colorScheme.surfaceContainer
-    val defaultBackgroundColor = MaterialTheme.colorScheme.background
+    val defaultNodeBorderColor = Color.White
+    val defaultNodeBackgroundColor = MaterialTheme.colorScheme.background.lighten(fraction = 0.12f)
     val defaultNodeText = "Type here"
     val defaultNodeFontSize = MaterialTheme.typography.bodyMedium.fontSize
 
@@ -138,17 +136,18 @@ fun MapEditorUI(
     var isHorizontalPagerVisible by remember { mutableStateOf(value = false) }
 
 
+
     BackHandler(enabled = isEditorModeEnabled) {
         mevm.changeEditorModeState(value = false)
     }
 
-    LaunchedEffect(mapItemPagerList.size) {
+    LaunchedEffect(key1 = mapItemPagerList.size) {
         if (mapItemPagerList.isNotEmpty()){
             pagerState.animateScrollToPage(mapItemPagerList.lastIndex)
             isHorizontalPagerVisible = true
         } else isHorizontalPagerVisible = false
     }
-    DisposableEffect(isBottomSheetVisible) {
+    DisposableEffect(key1 = isBottomSheetVisible) {
         currentActivity?.hideSystemStatusBar()
         onDispose { currentActivity?.hideSystemStatusBar() }
     }
@@ -286,8 +285,8 @@ fun MapEditorUI(
                             true -> Icons.Default.EditOff
                         },
                         contentDescription = when (isEditorModeEnabled) {
-                            false -> stringResource(R.string.contentDescription_enable_reader_mode)
-                            true -> stringResource(R.string.contentDescription_enable_editor_mode)
+                            false -> stringResource(id =R.string.contentDescription_enable_reader_mode)
+                            true -> stringResource(id = R.string.contentDescription_enable_editor_mode)
                         }
                     )
                 }
@@ -310,41 +309,52 @@ fun MapEditorUI(
                             beyondViewportPageCount = 1,
                             key = { listIndex -> mapItemPagerList[listIndex].uuid }
                         ) { i ->
+                            //Warning: currentPage is NOT REACTIVE!!!!!!!!! (definitely did not waste hours on a bug)
                             when (val currentPage = mapItemPagerList[i]) {
                                 is MapItem.Note -> {
                                     NoteScreen(
                                         activity = currentActivity,
-                                        note = currentPage,
                                         mevm = mevm,
+                                        mapItemUUID = currentPage.uuid,
                                         pagerList = mapItemPagerList
                                     )
                                 }
                                 is MapItem.Space -> {
                                     SpaceScreen(
                                         activity = currentActivity,
-                                        nodes = currentPage.spaceNodeInfo,
+                                        mevm = mevm,
+                                        mapItemUUID = currentPage.uuid,
                                         pagerState = pagerState,
-                                        onAddNode = { canvasSize, camera ->
-                                            val screenCenter = Offset(
-                                                x = canvasSize.width / 2f,
-                                                y = canvasSize.height / 2f
-                                            )
+                                        onAddNode = { _, camera, longPressOffset ->
+                                            val mapItemUUID = currentPage.uuid
 
-                                            val defaultNodeOffset = (screenCenter - camera.offset) / camera.scale
+                                            val longPressWorldPos = (longPressOffset - camera.offset) / camera.scale
+
+                                            val defaultNodeOffset = Offset(
+                                                x = longPressWorldPos.x - defaultNodeWidth / 2f,
+                                                y = longPressWorldPos.y - defaultNodeHeight / 2f
+                                            )
 
                                             val defaultNode = MapItemObject.SpaceNode(
                                                 offset = defaultNodeOffset,
                                                 width = defaultNodeWidth,
                                                 height = defaultNodeHeight,
                                                 borderColor = defaultNodeBorderColor,
-                                                backgroundColor = defaultBackgroundColor,
+                                                backgroundColor = defaultNodeBackgroundColor,
                                                 text = defaultNodeText,
                                                 fontSize = defaultNodeFontSize
                                             )
 
                                             mevm.miplAddSpaceNodeToSpace(
-                                                mapItemUUID = currentPage.uuid,
+                                                mapItemUUID = mapItemUUID,
                                                 node = defaultNode
+                                            )
+                                        },
+                                        onNodeHit = { _, nodeUUID ->
+                                            //todo: add drag corners to the node, text editing and arrow creation
+                                            mevm.miplSelectSpaceNode(
+                                                mapItemUUID = currentPage.uuid,
+                                                nodeUUID = nodeUUID,
                                             )
                                         }
                                     )
@@ -364,8 +374,8 @@ fun MapEditorUI(
 
                                 Box(
                                     modifier = Modifier
-                                        .padding(4.dp)
-                                        .size(8.dp)
+                                        .padding(all = 4.dp)
+                                        .size(size = 8.dp)
                                         .background(color, CircleShape)
                                 )
                             }
@@ -393,7 +403,7 @@ fun MapEditorUI(
                                 contentDescription = null
                             )
                             Text(
-                                text = stringResource(R.string.background_text_in_empty_map),
+                                text = stringResource(id = R.string.background_text_in_empty_map),
                                 color = commonColor,
                                 style = MindMapTypography.labelLarge
                             )

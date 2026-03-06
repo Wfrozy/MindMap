@@ -32,8 +32,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.frozy.mindmap.R
 import com.frozy.mindmap.storage.FileData
 import com.frozy.mindmap.storage.StorageOption
-import com.frozy.mindmap.storage.util.MAX_MAP_NAME_LENGTH
-import com.frozy.mindmap.storage.util.checkIfFileNameIsInvalid
+import com.frozy.mindmap.storage.utils.checkIfFileNameIsInvalid
 import com.frozy.mindmap.ui.theme.MindMapTypography
 
 @Composable

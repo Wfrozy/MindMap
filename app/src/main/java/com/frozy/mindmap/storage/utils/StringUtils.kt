@@ -1,4 +1,4 @@
-package com.frozy.mindmap.storage.util
+package com.frozy.mindmap.storage.utils
 const val MAX_MAP_NAME_LENGTH = 16
 
 //ensure filename ends with .json and does not contain invalid chars in the file name

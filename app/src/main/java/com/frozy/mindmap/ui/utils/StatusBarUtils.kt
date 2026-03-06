@@ -1,4 +1,4 @@
-package com.frozy.mindmap.ui.util
+package com.frozy.mindmap.ui.utils
 
 import android.app.Activity
 import androidx.core.view.WindowCompat
