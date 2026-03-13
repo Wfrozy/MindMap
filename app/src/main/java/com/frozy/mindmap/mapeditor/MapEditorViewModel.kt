@@ -1,10 +1,10 @@
 package com.frozy.mindmap.mapeditor
 
 import android.app.Application
-import android.util.Log
 import androidx.lifecycle.AndroidViewModel
-import com.frozy.mindmap.mapeditor.model.MapItem
-import com.frozy.mindmap.mapeditor.model.MapItemObject
+import com.frozy.mindmap.mapeditor.models.MapItem
+import com.frozy.mindmap.mapeditor.models.MapItemObject
+import com.frozy.mindmap.mapeditor.models.NodeLayout
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -167,5 +167,6 @@ class MapEditorViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
     }
+
 }
 

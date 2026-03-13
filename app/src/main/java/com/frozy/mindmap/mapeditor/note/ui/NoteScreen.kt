@@ -30,7 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.frozy.mindmap.R
 import com.frozy.mindmap.ui.utils.hideSystemStatusBar
 import com.frozy.mindmap.mapeditor.MapEditorViewModel
-import com.frozy.mindmap.mapeditor.model.MapItem
+import com.frozy.mindmap.mapeditor.models.MapItem
 import com.frozy.mindmap.ui.utils.showSystemStatusBar
 import java.util.UUID
 

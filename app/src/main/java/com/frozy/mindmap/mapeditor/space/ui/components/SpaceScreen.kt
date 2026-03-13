@@ -1,10 +1,12 @@
 package com.frozy.mindmap.mapeditor.space.ui.components
 
 import android.app.Activity
+import android.util.Log
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
@@ -33,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -45,21 +48,23 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import com.frozy.mindmap.R
 import com.frozy.mindmap.mapeditor.MapEditorViewModel
-import com.frozy.mindmap.mapeditor.model.MapItem
-import com.frozy.mindmap.mapeditor.model.MapItemObject
-import com.frozy.mindmap.mapeditor.model.NodeResizeHandle
-import com.frozy.mindmap.mapeditor.model.ResizeState
-import com.frozy.mindmap.mapeditor.model.SpaceCameraState
-import com.frozy.mindmap.mapeditor.space.ui.utils.detectResizeHandleOrNull
+import com.frozy.mindmap.mapeditor.models.HitAt
+import com.frozy.mindmap.mapeditor.models.InteractionType
+import com.frozy.mindmap.mapeditor.models.MapItem
+import com.frozy.mindmap.mapeditor.models.MapItemObject
+import com.frozy.mindmap.mapeditor.models.ResizeState
+import com.frozy.mindmap.mapeditor.models.SpaceCameraState
+import com.frozy.mindmap.mapeditor.models.SpaceValues.DRAG_THRESHOLD
+import com.frozy.mindmap.mapeditor.models.SpaceValues.MAX_OVERSCROLL
+import com.frozy.mindmap.mapeditor.models.SpaceValues.MAX_WORLD_X
+import com.frozy.mindmap.mapeditor.models.SpaceValues.MIN_WORLD_X
+import com.frozy.mindmap.mapeditor.space.ui.utils.buildNodeLayout
+import com.frozy.mindmap.mapeditor.space.ui.utils.categorizeHitAtType
+import com.frozy.mindmap.mapeditor.space.ui.utils.returnHitNodeOrNull
 import com.frozy.mindmap.ui.components.BottomSheetItem
 import com.frozy.mindmap.ui.utils.hideSystemStatusBar
 import kotlinx.coroutines.launch
 import java.util.UUID
-
-const val MIN_WORLD_X = -2000f
-const val MAX_WORLD_X = 2000f
-const val MAX_OVERSCROLL = 150f
-const val DRAG_THRESHOLD = 50f
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,6 +99,17 @@ fun SpaceScreen(
 
 
     var camera by remember { mutableStateOf(value = SpaceCameraState()) }
+    var interaction by remember { mutableStateOf<InteractionType>(value = InteractionType.Idle) }
+
+    //build all layouts at the start of the frame
+    //rememberUpdatedState is for updating the value of layouts that .pointerInput() receives
+    val l = nodes.map { node -> return@map node.buildNodeLayout(camera) }
+
+    val layoutsState = rememberUpdatedState(newValue = l)
+
+    val layouts by remember(key1 = layoutsState){
+        derivedStateOf{ layoutsState.value }
+    }
 
     //starts at 0 but then gets the value once a Canvas gets drawn
     var canvasSize by remember { mutableStateOf(value = Size.Zero) }
@@ -175,38 +191,67 @@ fun SpaceScreen(
         modifier = Modifier
             .fillMaxSize()
             .pointerInput(key1 = Unit) {
-                detectTapGestures(
-                    //long press -> open up bottom sheet
-                    onLongPress = { offset ->
-                        longPressOffset = offset
-                        coroutineScope.launch {
-                            sheetState.show()
-                        }.invokeOnCompletion {
-                            isNodeSheetVisible = true
-                        }
-                    },
-                    //tap -> tap is on a node -> interact with node
-                    onTap = { tapOffset ->
+                detectTapGestures(onLongPress = { offset ->
+                    longPressOffset = offset
+                    coroutineScope.launch {
+                        sheetState.show()
+                    }.invokeOnCompletion {
+                        isNodeSheetVisible = true
+                    }
+                })
+            }
+            .pointerInput(key1 = Unit) {
+                awaitEachGesture {
+                    val firstDown = awaitFirstDown()
 
-                        val tapWorldPos = (tapOffset - camera.offset) / camera.scale
+                    val hit = categorizeHitAtType(
+                        layouts = layouts,
+                        pointerPos = firstDown.position
+                    )
 
-                        //checks to see if the tap coordinates are within the coordinate space of a node
-                        val nodeHitOrNull = nodes.firstOrNull { node ->
-                            return@firstOrNull tapWorldPos.x in node.offset.x..(node.offset.x + node.width) &&
-                                    tapWorldPos.y in node.offset.y..(node.offset.y + node.height)
-                        }
-
-
-                        if (nodeHitOrNull != null) {
-                            onNodeHit(nodeHitOrNull, nodeHitOrNull.uuid)
-                        } else {
-                            mevm.miplDeselectAllSpaceNodes(
-                                mapItemUUID = thisSpace.uuid
+                    when (hit) {
+                        is HitAt.HitNodeResizeHandle -> {
+                            interaction = InteractionType.NodeResize(
+                                nodeId = hit.layout.node.uuid,
+                                selectedHandle = hit.handleHitbox,
+                                startPointerOffset = firstDown.position,
+                                startNodeWidth = hit.layout.node.width,
+                                startNodeHeight = hit.layout.node.height,
+                                startNodeOffset = hit.layout.node.offset
                             )
-                            resizeState = null
+                        }
+
+                        is HitAt.HitNodeBody -> {
+                            interaction = InteractionType.NodeDrag(
+                                nodeId = hit.layout.node.uuid,
+                                startPointerOffset = firstDown.position,
+                                startNodeOffset = hit.layout.node.offset
+                            )
+                            val hitNode = returnHitNodeOrNull(layouts = layouts, pointerPos = firstDown.position)
+                            mevm.miplSelectSpaceNode(
+                                mapItemUUID = thisSpace.uuid,
+                                nodeUUID = hitNode!!.uuid
+                            )
+                        }
+
+                        is HitAt.HitNodeArrow -> {
+                            interaction = InteractionType.NodeArrowDrag(
+                                nodeId = hit.layout.node.uuid,
+                                startPointerOffset = firstDown.position
+                            )
+                        }
+
+                        is HitAt.HitCanvas -> {
+                            interaction = InteractionType.CanvasLongPress(
+                                startPointerOffset = firstDown.position,
+                                startTimeMillis = System.currentTimeMillis()
+                            )
+                            mevm.miplDeselectAllSpaceNodes(mapItemUUID = thisSpace.uuid)
                         }
                     }
-                )
+                    //todo remove this
+                    Log.d("", "interactionType: ${hit.javaClass}")
+                }
             }
             .pointerInput(key1 = Unit) {
                 //drag -> move the camera around
@@ -228,92 +273,6 @@ fun SpaceScreen(
                     )
                     activity?.hideSystemStatusBar()
                 }
-            }
-            .pointerInput(key1 = nodes, key2 = camera) {
-                detectDragGestures(
-                    onDragStart = { pointer ->
-
-                        val node = nodes.lastOrNull { node ->
-                            detectResizeHandleOrNull(tap = pointer, node, camera) != null
-                        }
-
-                        if (node != null) {
-
-                            val handle = detectResizeHandleOrNull(tap = pointer, node, camera)!!
-
-                            resizeState = ResizeState(
-                                nodeId = node.uuid,
-                                handle = handle,
-                                startPointer = pointer,
-                                startWidth = node.width,
-                                startHeight = node.height,
-                                startOffset = node.offset
-                            )
-                        }
-                    },
-                    onDrag = { change, _ ->
-
-                        val state = resizeState ?: return@detectDragGestures
-
-                        val nodeIndex = nodes.indexOfFirst { it.uuid == state.nodeId }
-                        val node = nodes[nodeIndex]
-
-                        val dx = change.position.x - state.startPointer.x
-                        val dy = change.position.y - state.startPointer.y
-
-                        val newNode = when (state.handle) {
-
-                            NodeResizeHandle.BottomRight -> {
-                                node.copy(
-                                    width = state.startWidth + dx,
-                                    height = state.startHeight + dy
-                                )
-                            }
-
-                            NodeResizeHandle.BottomLeft -> {
-                                node.copy(
-                                    width = state.startWidth - dx,
-                                    height = state.startHeight + dy,
-                                    offset = Offset(
-                                        x = state.startOffset.x + dx,
-                                        y = state.startOffset.y
-                                    )
-                                )
-                            }
-
-                            NodeResizeHandle.TopRight -> {
-                                node.copy(
-                                    width = state.startWidth + dx,
-                                    height = state.startHeight - dy,
-                                    offset = Offset(
-                                        x = state.startOffset.x,
-                                        y = state.startOffset.y + dy
-                                    )
-                                )
-                            }
-
-                            NodeResizeHandle.TopLeft -> {
-                                node.copy(
-                                    width = state.startWidth - dx,
-                                    height = state.startHeight - dy,
-                                    offset = Offset(
-                                        x = state.startOffset.x + dx,
-                                        y = state.startOffset.y + dy
-                                    )
-                                )
-                            }
-                        }
-
-                        mevm.miplChangeSpaceNode(
-                            mapItemUUID = thisSpace.uuid,
-                            nodeUUID = nodes[nodeIndex].uuid,
-                            newNode = newNode
-                        )
-                    },
-                    onDragEnd = {
-                        resizeState = null
-                    }
-                )
             }
     ) {
         Canvas(
@@ -348,9 +307,9 @@ fun SpaceScreen(
                 dotColor = dotColor,
             )
 
-            for (node in nodes) {
+            for (layout in layouts) {
                 drawNode(
-                    node = node,
+                    layout = layout,
                     camera = camera,
                     selectedNodeBorderColor = selectedNodeBorderColor,
                     arrowUpPainter = nodeArrowUpPainter,

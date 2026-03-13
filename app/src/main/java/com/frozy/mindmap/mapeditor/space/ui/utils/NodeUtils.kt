@@ -1,0 +1,199 @@
+package com.frozy.mindmap.mapeditor.space.ui.utils
+
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import com.frozy.mindmap.mapeditor.models.MapItemObject
+import com.frozy.mindmap.mapeditor.models.NodeResizeHandles
+import com.frozy.mindmap.mapeditor.models.SpaceCameraState
+import com.frozy.mindmap.mapeditor.models.NodeLayout
+import com.frozy.mindmap.mapeditor.models.NodeArrowHandles
+import com.frozy.mindmap.mapeditor.models.NodeArrowHandleValues
+import com.frozy.mindmap.mapeditor.models.NodeLayoutValues
+import com.frozy.mindmap.mapeditor.models.NodeResizeHandleValues
+
+fun MapItemObject.SpaceNode.buildNodeLayout(
+    camera: SpaceCameraState
+): NodeLayout {
+
+    val scaledOffset = (this.offset * camera.scale) + camera.offset
+    val scaledNodeWidth = this.width * camera.scale
+    val scaledNodeHeight = this.height * camera.scale
+    val nodeOutlineWidth = NodeLayoutValues.OUTLINE_WIDTH * camera.scale
+    val cornerRadius = CornerRadius(
+        x = NodeLayoutValues.CORNER_RADIUS_X * camera.scale,
+        y = NodeLayoutValues.CORNER_RADIUS_Y * camera.scale
+    )
+    val textPadding = (NodeLayoutValues.TEXT_PADDING * camera.scale).toInt()
+
+    val nodeHitbox = Rect(
+        offset = scaledOffset,
+        size = Size(scaledNodeWidth, scaledNodeHeight)
+    )
+
+    val handleWidth = NodeResizeHandleValues.WIDTH
+    val handleHeight = NodeResizeHandleValues.HEIGHT
+    val nodeTopLeft = nodeHitbox.topLeft
+
+    val resizeHandles = NodeResizeHandles(
+        topLeft = Rect(
+            Offset(
+                x = nodeTopLeft.x - handleWidth/2.5f,
+                y = nodeTopLeft.y - handleHeight/2.5f
+            ),
+            Size(width = handleWidth, height = handleHeight)
+        ),
+
+        topRight = Rect(
+            Offset(
+                x = nodeHitbox.right - handleWidth/2.5f,
+                y = nodeHitbox.top - handleHeight/2.5f
+            ),
+            Size(width = handleWidth, height = handleHeight)
+        ),
+
+        bottomLeft = Rect(
+            Offset(
+                x = nodeHitbox.left - handleWidth/2.5f,
+                y = nodeHitbox.bottom - handleHeight/2.5f
+            ),
+            Size(width = handleWidth, height = handleHeight)
+        ),
+
+        bottomRight = Rect(
+            Offset(
+                x = nodeHitbox.right - handleWidth/2.5f,
+                y = nodeHitbox.bottom - handleHeight/2.5f
+            ),
+            Size(width = handleWidth, height = handleHeight)
+        )
+    )
+
+    val centerX = nodeTopLeft.x + nodeHitbox.width/2
+    val centerY = nodeTopLeft.y + nodeHitbox.height/2
+
+    val arrowSize = NodeArrowHandleValues.WIDTH_AND_HEIGHT
+    val arrowOffset = NodeArrowHandleValues.PADDING_FROM_NODE
+
+    val arrowHandles = NodeArrowHandles(
+        top = Rect(
+            offset = Offset(
+                x = centerX - arrowSize,
+                y = nodeHitbox.top - arrowOffset*2 - arrowSize*2
+            ),
+            Size(width = arrowSize, height = arrowSize)
+        ),
+
+        bottom = Rect(
+            Offset(
+                x = centerX - arrowSize,
+                y = nodeHitbox.bottom + arrowOffset*2
+            ),
+            Size(width = arrowSize, height = arrowSize)
+        ),
+
+        left = Rect(
+            Offset(
+                x = nodeHitbox.left - arrowOffset*2 - arrowSize*2,
+                y = centerY - arrowSize
+            ),
+            Size(width = arrowSize, height = arrowSize)
+        ),
+
+        right = Rect(
+            Offset(
+                x = nodeHitbox.right + arrowOffset*2,
+                y = centerY - arrowSize
+            ),
+            Size(width = arrowSize,  height = arrowSize)
+        )
+    )
+    return NodeLayout(
+        node = this,
+        nodeHitbox,
+        resizeHandles,
+        arrowHandles,
+        nodeOutlineWidth,
+        cornerRadius,
+        textPadding
+    )
+}
+
+fun MapItemObject.SpaceNode.getResizeHandleRects(
+    camera: SpaceCameraState
+): NodeResizeHandles {
+
+    val scaledNodeOffset = (this.offset * camera.scale) + camera.offset
+    val scaledNodeWidth = this.width * camera.scale
+    val scaledNodeHeight = this.height * camera.scale
+
+    val cornerSize = 45f
+
+    val topLeft = Rect(
+        offset = Offset(
+            x = scaledNodeOffset.x - (cornerSize / 2.5f),
+            y = scaledNodeOffset.y - (cornerSize / 2.5f)
+        ),
+        size = Size(width = cornerSize, height = cornerSize)
+    )
+
+    val topRight = Rect(
+        offset = Offset(
+            x = (scaledNodeOffset.x + scaledNodeWidth) - (cornerSize / 2.5f),
+            y = scaledNodeOffset.y - (cornerSize / 2.5f)
+        ),
+        size = Size(width = cornerSize, height = cornerSize)
+    )
+
+    val bottomLeft = Rect(
+        offset = Offset(
+            x = scaledNodeOffset.x - (cornerSize / 2.5f),
+            y = (scaledNodeOffset.y + scaledNodeHeight) - (cornerSize / 2.5f)
+        ),
+        size = Size(width = cornerSize, height = cornerSize)
+    )
+
+    val bottomRight = Rect(
+        offset = Offset(
+            x = (scaledNodeOffset.x + scaledNodeWidth) - (cornerSize / 2.5f),
+            y = (scaledNodeOffset.y + scaledNodeHeight) - (cornerSize / 2.5f)
+        ),
+        size = Size(width = cornerSize, height = cornerSize)
+    )
+
+    return NodeResizeHandles(topLeft, topRight, bottomLeft, bottomRight)
+}
+
+fun NodeLayout.getActiveResizeHandleOrNull(
+    tap: Offset
+): Rect? {
+
+    val topLeft = this.resizeHandles.topLeft
+    val topRight = this.resizeHandles.topRight
+    val bottomLeft = this.resizeHandles.bottomLeft
+    val bottomRight = this.resizeHandles.bottomRight
+
+    //there's probably a better way to do this but at least it is readable 😊👍
+    if(tap.x in topLeft.right..topLeft.left &&
+        tap.y in topLeft.top..topLeft.bottom) {
+        return topLeft
+    }
+
+    if(tap.x in topRight.right..topRight.left &&
+       tap.y in topRight.top..topRight.bottom) {
+        return topRight
+    }
+
+    if(tap.x in bottomLeft.right..bottomLeft.left &&
+        tap.y in bottomLeft.top..bottomLeft.bottom) {
+        return bottomLeft
+    }
+
+    if(tap.x in bottomRight.right..bottomRight.left &&
+        tap.y in bottomRight.top..bottomRight.bottom) {
+        return bottomRight
+    }
+
+    return null
+}

@@ -66,8 +66,8 @@ import androidx.compose.ui.unit.dp
 import com.frozy.mindmap.ui.components.BottomSheetItem
 import com.frozy.mindmap.mapeditor.note.ui.NoteScreen
 import com.frozy.mindmap.R
-import com.frozy.mindmap.mapeditor.model.MapItem
-import com.frozy.mindmap.mapeditor.model.MapItemObject
+import com.frozy.mindmap.mapeditor.models.MapItem
+import com.frozy.mindmap.mapeditor.models.MapItemObject
 import com.frozy.mindmap.mapeditor.space.ui.components.SpaceScreen
 import com.frozy.mindmap.ui.utils.hideSystemStatusBar
 import com.frozy.mindmap.ui.theme.MindMapTheme
@@ -76,11 +76,11 @@ import com.frozy.mindmap.ui.utils.lighten
 import kotlinx.coroutines.launch
 
 //todo [small] add cool transition between main activity and this activity
-//todo [small] make it so the system bars don't pop up whe you switch apps
-//todo [small] something with the top app bar to make it more immersive
-//todo [medium] add toggle for "editor mode" and "reader mode"
-//todo [medium] add animations everywhere
-//todo [small, optional] change boundary arrow to a "no you can't do this" symbol when you can't scroll or the fade color
+//todo {ignore} [small] make it so the system bars don't pop up whe you switch apps
+//todo {ignore} [small] something with the top app bar to make it more immersive
+//todo {ignore} [medium] add toggle for "editor mode" and "reader mode"
+//todo {ignore} [medium] add animations everywhere
+//todo {ignore} [small, optional] change boundary arrow to a "no you can't do this" symbol when you can't scroll or the fade color
 class MapEditorActivity : ComponentActivity() {
     private val mapEditorVM: MapEditorViewModel by viewModels()
 

@@ -1,4 +1,4 @@
-package com.frozy.mindmap.mapeditor.model
+package com.frozy.mindmap.mapeditor.models
 
 import androidx.compose.ui.geometry.Offset
 
