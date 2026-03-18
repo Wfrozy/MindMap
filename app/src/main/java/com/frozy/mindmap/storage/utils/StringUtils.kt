@@ -1,15 +1,20 @@
 package com.frozy.mindmap.storage.utils
-const val MAX_MAP_NAME_LENGTH = 16
 
-//ensure filename ends with .json and does not contain invalid chars in the file name
-fun String.sanitizeAndEnsureJsonExtension(fallbackString: String): String {
-    val trimmed = this.trim().ifBlank { fallbackString }
+import com.frozy.mindmap.constants.FileExtension.APP_FILE_EXTENSION
+import com.frozy.mindmap.main.models.MainActivityValues.MAX_MAP_NAME_LENGTH
+
+//ensure filename ends with the correct extension and does not contain invalid chars in the file name
+fun String.sanitizeAndEnsureExtension(): String {
+    val trimmed = this.trim().ifBlank { this }
 
     //replace illegal file chars with underscore
     val sanitized = trimmed.replace(Regex(pattern = "[/\\\\:*?\"<>|]"), replacement = "_")
 
-    return if (sanitized.endsWith(".json", ignoreCase = true)) sanitized
-    else "$sanitized.json"
+    return if (sanitized.endsWith(APP_FILE_EXTENSION, ignoreCase = true)) {
+        sanitized
+    } else {
+        sanitized + APP_FILE_EXTENSION
+    }
 }
 
 fun String.checkIfFileNameIsInvalid(

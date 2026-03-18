@@ -30,15 +30,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.frozy.mindmap.R
-import com.frozy.mindmap.storage.FileData
-import com.frozy.mindmap.storage.StorageOption
+import com.frozy.mindmap.main.models.MapListEntry
+import com.frozy.mindmap.storage.models.StorageOption
 import com.frozy.mindmap.storage.utils.checkIfFileNameIsInvalid
 import com.frozy.mindmap.ui.theme.MindMapTypography
 
 @Composable
 fun CreateNewFileDialog(
-    currentFileData: FileData,
-    onTextFieldValueChangeSetter: (FileData) -> Unit,
+    entry: MapListEntry,
+    onTextFieldValueChange: (MapListEntry) -> Unit,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
     currentSelectedStorage: StorageOption,
@@ -58,11 +58,11 @@ fun CreateNewFileDialog(
         text = {
             Column {
                 OutlinedTextField(
-                    value = currentFileData.fileName,
+                    value = entry.name,
                     onValueChange = { newValue ->
                         if(!newValue.checkIfFileNameIsInvalid(blankCheck = false)){
                             isFileNameInvalid = newValue.checkIfFileNameIsInvalid()
-                            onTextFieldValueChangeSetter(currentFileData.copy(fileName = newValue))
+                            onTextFieldValueChange(entry.copy(name = newValue))
                         }
                     },
                     label = {

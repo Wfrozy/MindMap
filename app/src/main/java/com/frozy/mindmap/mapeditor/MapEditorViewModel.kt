@@ -2,20 +2,22 @@ package com.frozy.mindmap.mapeditor
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.frozy.mindmap.mapeditor.models.MapItem
 import com.frozy.mindmap.mapeditor.models.MapItemObject
 import com.frozy.mindmap.mapeditor.models.NodeLayout
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import java.util.UUID
 
 class MapEditorViewModel(application: Application) : AndroidViewModel(application) {
 
     //just in case I need context
     val context = getApplication<Application>()
-
     private val _isEditorModeEnabled = MutableStateFlow(value = false)
     val isEditorModeEnabled: StateFlow<Boolean> = _isEditorModeEnabled.asStateFlow()
     fun changeEditorModeState(value: Boolean) { _isEditorModeEnabled.value = value }
@@ -23,6 +25,12 @@ class MapEditorViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val _mapItemPagerList = MutableStateFlow(value = emptyList<MapItem>())
     val mapItemPagerList: StateFlow<List<MapItem>> = _mapItemPagerList.asStateFlow()
+
+    init { //todo
+        viewModelScope.launch {
+
+        }
+    }
 
     fun miplAddMapItem(mapItem: MapItem){
         _mapItemPagerList.update { list ->

@@ -66,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import com.frozy.mindmap.ui.components.BottomSheetItem
 import com.frozy.mindmap.mapeditor.note.ui.NoteScreen
 import com.frozy.mindmap.R
+import com.frozy.mindmap.constants.FileExtension.APP_FILE_EXTENSION
 import com.frozy.mindmap.mapeditor.models.MapItem
 import com.frozy.mindmap.mapeditor.models.MapItemObject
 import com.frozy.mindmap.mapeditor.space.ui.components.SpaceScreen
@@ -91,7 +92,7 @@ class MapEditorActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val fileNameFromIntent = intent.getStringExtra("file_name") ?: "Unknown.json"
+        val fileNameFromIntent = intent.getStringExtra("fileName") ?: "Unknown$APP_FILE_EXTENSION"
 //        val storageOptionFromIntent = intent.getStringExtra("storage")?.let { StorageOption.valueOf(it) } ?: StorageOption.DEVICE
         enableEdgeToEdge()
         setContent {
@@ -118,7 +119,7 @@ fun MapEditorUI(
     val sheetState = rememberModalBottomSheetState()
     var isBottomSheetVisible by remember { mutableStateOf(value = false) }
 
-    val fileNameFromIntentNoJson = fileNameFromIntent.removeSuffix(suffix = ".json")
+    val fileNameFromIntentNoJson = fileNameFromIntent.removeSuffix(suffix = APP_FILE_EXTENSION)
     val currentActivity = LocalActivity.current
     val isEditorModeEnabled by mevm.isEditorModeEnabled.collectAsState()
 

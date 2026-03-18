@@ -2,11 +2,13 @@
   <dictionary name="project">
     <words>
       <w>exclam</w>
+      <w>mapeditor</w>
       <w>mavm</w>
       <w>mevm</w>
       <w>mipl</w>
       <w>rects</w>
       <w>textfield</w>
+      <w>vecteezy</w>
     </words>
   </dictionary>
 </component>

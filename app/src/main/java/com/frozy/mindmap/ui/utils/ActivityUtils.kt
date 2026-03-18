@@ -3,9 +3,10 @@ package com.frozy.mindmap.ui.utils
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.frozy.mindmap.constants.FileExtension.APP_FILE_EXTENSION
 import com.frozy.mindmap.mapeditor.MapEditorActivity
 import com.frozy.mindmap.settings.SettingsActivity
-import com.frozy.mindmap.storage.FileData
+import com.frozy.mindmap.storage.models.MapFileMetadata
 
 fun Context.openSettingsActivity(){
     val intent = Intent(this, SettingsActivity::class.java)
@@ -20,11 +21,16 @@ fun Context.openSettingsActivity(){
     this.startActivity(intent)
 }
 
-fun openSelectedMap(context: Context, file: FileData){
-    Log.d("getJsonDataFromUris", "$file")
+fun openSelectedMap(context: Context, metadata: MapFileMetadata){
+
+    Log.d("openSelectedMap", "metadata: $metadata")
+
     val intent = Intent(context, MapEditorActivity::class.java).apply {
-        putExtra("file_name", file.fileName)
-        putExtra("storage", file.storedIn.name)
+        putExtra("fileName", metadata.fileName.removeSuffix(suffix = APP_FILE_EXTENSION).removeSuffix(suffix = ".json"))
+        putExtra("filePath", metadata.filePath)
+        putExtra("storage", metadata.storedIn.name)
+        putExtra("timeStampID", metadata.lastModified)
+        putExtra("uri", metadata.uri)
     }
     /*
         if the activity already exists in the current task’s back stack, Android will

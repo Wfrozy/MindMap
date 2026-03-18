@@ -1,4 +1,4 @@
-package com.frozy.mindmap.storage
+package com.frozy.mindmap.storage.models
 
 import com.frozy.mindmap.R
 

@@ -1,4 +1,3 @@
-<!--todo [small] add PT translation-->
 <resources>
     <string name="app_name">MindMap</string>
     <string name="create_new_file_title">Create new map</string>
@@ -7,14 +6,11 @@
     <string name="create_new_file_cancel_button">Cancel</string>
     <string name="create_new_file_device_storage_label">Device Storage</string>
     <string name="create_new_file_app_storage_label">App Storage</string>
-    <string name="create_new_file_device_storage_description">Saves map in a location of your choice on the device. Other apps may access these files.</string>
+    <string name="create_new_file_device_storage_description">Saves map in a location of your choice on the device. Other apps can access these files.</string>
     <string name="create_new_file_app_storage_description">Saves map privately within the app, not accessible to other apps, but data will be lost if the app is uninstalled.</string>
     <string name="create_new_file_storage_option_subtitle">Storage Option</string>
-    <string name="default_map_name_with_json">NewMap.json</string>
-    <string name="default_map_name_no_json">NewMap</string>
-    <string name="toast_file_created_success">Saved %1$s</string>
-    <string name="toast_file_created_fail">Failed to save %1$s</string>
-    <string name="toast_file_saving_cancelled">Cancelled saving.</string>
+    <string name="default_map_name_with_extension">NewMap.mindmap</string>
+    <string name="default_map_name_no_extension">NewMap</string>
     <string name="import_file">Import map</string>
     <string name="contentDescription_settings_iconButton">App settings</string>
     <string name="contentDescription_create_new_file_fab">Create new map</string>
@@ -31,19 +27,30 @@
     <string name="map_editor_new_note">New Note</string>
     <string name="map_editor_new_space">New Space</string>
     <string name="map_editor_add_image">Add Image</string>
-    <string name="toast_file_picker_cancelled">File picker cancelled.</string>
+
+
+    <string name="toast_file_created_success">Created %1$s</string>
+    <string name="toast_file_created_fail">Failed to create %1$s</string>
     <string name="toast_file_picker_json_exception">Malformed map file.</string>
     <string name="toast_file_picker_security_exception">App can\'t access map file.</string>
     <string name="toast_file_picker_file_not_found_exception">Couldn\'t find map file.</string>
     <string name="toast_file_picker_io_exception">Failed to read content from map file.</string>
+    <string name="toast_file_deleted_fail">Failed to delete %1$s</string>
+    <string name="toast_file_deleted_success">Deleted %1$s</string>
+
+    <string name="toast_file_saving_cancelled">Cancelled saving.</string>
+    <string name="toast_file_picker_cancelled">File picker cancelled.</string>
+
     <string name="edit_map_dialog_confirm_button">Confirm</string>
     <string name="edit_map_dialog_delete_button">Delete</string>
-    <string name="toast_file_deleted_success">Failed to delete %1$s</string>
-    <string name="toast_file_deleted_fail">Deleted %1$s</string>
     <string name="map_editor_add_new_node">Add new node</string>
     <string name="contentDescription_map_editor_add_new_node">Add new node</string>
     <string name="note_screen_title_placeholder">Title</string>
     <string name="note_screen_note_content_placeholder">Time to write!</string>
     <string name="file_deletion_confirmation_message">Are you sure you want to delete the map?</string>
     <string name="file_deletion_consequence_message">This will delete the file present on your device.</string>
+    <string name="main_activity_select_map_header_text">Select map:</string>
+    <string name="toast_file_rename_success">Map renamed.</string>
+    <string name="toast_file_rename_fail">Failed to rename map.</string>
+    <string name="toast_number_of_already_existing_maps">%1$s of the selected maps already exist.</string>
 </resources>

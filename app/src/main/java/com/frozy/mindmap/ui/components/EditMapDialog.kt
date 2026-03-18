@@ -16,19 +16,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.window.DialogProperties
 import com.frozy.mindmap.R
-import com.frozy.mindmap.storage.FileData
+import com.frozy.mindmap.main.models.MapListEntry
 import com.frozy.mindmap.storage.utils.checkIfFileNameIsInvalid
 
 @Composable
 fun EditMapDialog(
-    currentFileData: FileData,
+    currentMapEntry: MapListEntry,
     onDismiss: () -> Unit,
     onDelete:  () -> Unit,
-    onConfirm: (FileData) -> Unit,
-    fileListIndex: Int
+    onConfirm: (MapListEntry) -> Unit
 ){
     var isFileNameInvalid by remember { mutableStateOf(value = false) }
-    var fileData by remember { mutableStateOf(value = currentFileData) }
+    var entry by remember { mutableStateOf(value = currentMapEntry) }
+    val originalMapName by remember { mutableStateOf(value = entry.name) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -36,11 +36,11 @@ fun EditMapDialog(
         text = {
             Column {
                 OutlinedTextField(
-                    value = fileData.fileNameNoJson,
+                    value = entry.name,
                     onValueChange = { newValue ->
                         if(!newValue.checkIfFileNameIsInvalid(blankCheck = false)){
                             isFileNameInvalid = newValue.checkIfFileNameIsInvalid()
-                            fileData = fileData.copy(fileName = newValue)
+                            entry = entry.copy(name = newValue)
                         }
                     },
                     label = {
@@ -54,8 +54,8 @@ fun EditMapDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(fileData) },
-                enabled = !isFileNameInvalid
+                onClick = { onConfirm(entry) },
+                enabled = !isFileNameInvalid && originalMapName != entry.name
             ) {
                 Text(text = stringResource(R.string.edit_map_dialog_confirm_button))
             }
