@@ -1,10 +1,9 @@
 package com.frozy.mindmap.mapeditor.space.ui.utils
 
-import android.util.Log
 import androidx.compose.ui.geometry.Offset
-import com.frozy.mindmap.mapeditor.models.HitAt
-import com.frozy.mindmap.mapeditor.models.MapItemObject
-import com.frozy.mindmap.mapeditor.models.NodeLayout
+import com.frozy.mindmap.mapeditor.space.models.HitAt
+import com.frozy.mindmap.mapeditor.space.models.MapItemObject
+import com.frozy.mindmap.mapeditor.space.models.NodeLayout
 import kotlin.collections.asReversed
 
 fun categorizeHitAtType(
@@ -22,15 +21,23 @@ fun categorizeHitAtType(
         //if node no nodes are selected, then no handles will be present, so just skip!
         if(!layout.node.isSelected){ continue }
 
-        layout.resizeHandles.entries.forEach { handle ->
+        layout.resizeHandles.entries.forEach { (handle, handleType) ->
             if (handle.contains(pointerPos)) {
-                return HitAt.HitNodeResizeHandle(layout, handleHitbox = handle)
+                return HitAt.HitNodeResizeHandle(
+                    layout = layout,
+                    handleHitbox = handle,
+                    handleType = handleType
+                )
             }
         }
 
-        layout.arrowHandles.entries.forEach { arrow ->
+        layout.arrowHandles.entries.forEach { (arrow, arrowType) ->
             if (arrow.contains(pointerPos)) {
-                return HitAt.HitNodeArrow(layout, arrowHitbox = arrow)
+                return HitAt.HitNodeArrow(
+                    layout = layout,
+                    arrowHitbox = arrow,
+                    arrowType = arrowType,
+                )
             }
         }
     }

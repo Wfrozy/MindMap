@@ -5,12 +5,12 @@ import com.frozy.mindmap.main.models.MainActivityValues.MAX_MAP_NAME_LENGTH
 
 //ensure filename ends with the correct extension and does not contain invalid chars in the file name
 fun String.sanitizeAndEnsureExtension(): String {
-    val trimmed = this.trim().ifBlank { this }
+    val trimmed = this.trim().ifBlank { "NewMap$APP_FILE_EXTENSION" }
 
     //replace illegal file chars with underscore
     val sanitized = trimmed.replace(Regex(pattern = "[/\\\\:*?\"<>|]"), replacement = "_")
 
-    return if (sanitized.endsWith(APP_FILE_EXTENSION, ignoreCase = true)) {
+    return if (sanitized.endsWith(suffix = APP_FILE_EXTENSION, ignoreCase = true)) {
         sanitized
     } else {
         sanitized + APP_FILE_EXTENSION

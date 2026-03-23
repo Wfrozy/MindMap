@@ -1,4 +1,4 @@
-package com.frozy.mindmap.mapeditor.models
+package com.frozy.mindmap.mapeditor.space.models
 
 import androidx.compose.ui.geometry.Offset
 import java.util.UUID

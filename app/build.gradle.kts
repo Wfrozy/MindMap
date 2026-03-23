@@ -81,4 +81,5 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.compose.foundation)
+    implementation("com.github.skydoves:colorpicker-compose:1.1.2")
 }

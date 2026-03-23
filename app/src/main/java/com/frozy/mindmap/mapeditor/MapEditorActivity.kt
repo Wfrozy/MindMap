@@ -26,14 +26,11 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.ArrowCircleLeft
 import androidx.compose.material.icons.filled.Cable
 import androidx.compose.material.icons.filled.Construction
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.EditOff
 import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -50,6 +47,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -63,25 +61,23 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.frozy.mindmap.ui.components.BottomSheetItem
-import com.frozy.mindmap.mapeditor.note.ui.NoteScreen
 import com.frozy.mindmap.R
 import com.frozy.mindmap.constants.FileExtension.APP_FILE_EXTENSION
-import com.frozy.mindmap.mapeditor.models.MapItem
-import com.frozy.mindmap.mapeditor.models.MapItemObject
+import com.frozy.mindmap.mapeditor.note.ui.NoteScreen
+import com.frozy.mindmap.mapeditor.space.constants.DefaultNodeValues.DEFAULT_NODE_HEIGHT
+import com.frozy.mindmap.mapeditor.space.constants.DefaultNodeValues.DEFAULT_NODE_WIDTH
+import com.frozy.mindmap.mapeditor.space.models.MapItem
+import com.frozy.mindmap.mapeditor.space.models.MapItemObject
 import com.frozy.mindmap.mapeditor.space.ui.components.SpaceScreen
-import com.frozy.mindmap.ui.utils.hideSystemStatusBar
+import com.frozy.mindmap.ui.components.BottomSheetItem
 import com.frozy.mindmap.ui.theme.MindMapTheme
 import com.frozy.mindmap.ui.theme.MindMapTypography
+import com.frozy.mindmap.ui.utils.hideSystemStatusBar
 import com.frozy.mindmap.ui.utils.lighten
 import kotlinx.coroutines.launch
 
-//todo [small] add cool transition between main activity and this activity
-//todo {ignore} [small] make it so the system bars don't pop up whe you switch apps
-//todo {ignore} [small] something with the top app bar to make it more immersive
-//todo {ignore} [medium] add toggle for "editor mode" and "reader mode"
-//todo {ignore} [medium] add animations everywhere
-//todo {ignore} [small, optional] change boundary arrow to a "no you can't do this" symbol when you can't scroll or the fade color
+//todo [BIG] images!
+
 class MapEditorActivity : ComponentActivity() {
     private val mapEditorVM: MapEditorViewModel by viewModels()
 
@@ -93,7 +89,6 @@ class MapEditorActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         val fileNameFromIntent = intent.getStringExtra("fileName") ?: "Unknown$APP_FILE_EXTENSION"
-//        val storageOptionFromIntent = intent.getStringExtra("storage")?.let { StorageOption.valueOf(it) } ?: StorageOption.DEVICE
         enableEdgeToEdge()
         setContent {
             MindMapTheme {
@@ -121,22 +116,24 @@ fun MapEditorUI(
 
     val fileNameFromIntentNoJson = fileNameFromIntent.removeSuffix(suffix = APP_FILE_EXTENSION)
     val currentActivity = LocalActivity.current
-    val isEditorModeEnabled by mevm.isEditorModeEnabled.collectAsState()
 
+    val isEditorModeEnabled by mevm.isEditorModeEnabled.collectAsState()
     val mapItemPagerList by mevm.mapItemPagerList.collectAsState()
+    val allSelectedNodes by mevm.allSelectedNodes.collectAsState()
+    val numberOfSelectedNodes by remember(key1 = allSelectedNodes) {
+        derivedStateOf { allSelectedNodes.size }
+    }
 
     //default SpaceNode parameters when creating a node in a Space
-    val defaultNodeWidth = 450f
-    val defaultNodeHeight = 150f
+    val defaultNodeWidth = DEFAULT_NODE_WIDTH
+    val defaultNodeHeight = DEFAULT_NODE_HEIGHT
     val defaultNodeBorderColor = Color.White
     val defaultNodeBackgroundColor = MaterialTheme.colorScheme.background.lighten(fraction = 0.12f)
-    val defaultNodeText = "Type here"
+    val defaultNodeText = stringResource(id = R.string.default_space_node_text)
     val defaultNodeFontSize = MaterialTheme.typography.bodyMedium.fontSize
 
     val pagerState = rememberPagerState(pageCount = { mapItemPagerList.size })
     var isHorizontalPagerVisible by remember { mutableStateOf(value = false) }
-
-
 
     BackHandler(enabled = isEditorModeEnabled) {
         mevm.changeEditorModeState(value = false)
@@ -144,69 +141,23 @@ fun MapEditorUI(
 
     LaunchedEffect(key1 = mapItemPagerList.size) {
         if (mapItemPagerList.isNotEmpty()){
-            pagerState.animateScrollToPage(mapItemPagerList.lastIndex)
+            pagerState.animateScrollToPage(page = mapItemPagerList.lastIndex)
             isHorizontalPagerVisible = true
         } else isHorizontalPagerVisible = false
     }
+
+    //avoids race conditions with the composable being toggled with if() and .show() animation
+    LaunchedEffect(key1 = isBottomSheetVisible) {
+        if (isBottomSheetVisible) {
+            sheetState.show()
+        }
+    }
+
     DisposableEffect(key1 = isBottomSheetVisible) {
         currentActivity?.hideSystemStatusBar()
         onDispose { currentActivity?.hideSystemStatusBar() }
     }
 
-    if(isBottomSheetVisible) {
-        ModalBottomSheet(
-            sheetState = sheetState,
-            onDismissRequest = {
-                coroutineScope.launch {
-                    sheetState.hide()
-                }.invokeOnCompletion {
-                    isBottomSheetVisible = false
-                }
-            }
-        ) {
-            Column(
-                modifier = Modifier.padding(all = 16.dp)
-            ) {
-                BottomSheetItem(
-                    icon = Icons.Default.Lightbulb,
-                    text = stringResource(id = R.string.map_editor_new_note),
-                    itemOnClick = {
-                        mevm.miplAddMapItem(mapItem = MapItem.Note())
-                        coroutineScope.launch {
-                            sheetState.hide()
-                        }.invokeOnCompletion {
-                            isBottomSheetVisible = false
-                        }
-                    }
-                )
-                BottomSheetItem(
-                    icon = Icons.Default.Cable,
-                    text = stringResource(R.string.map_editor_new_space),
-                    itemOnClick = {
-                        mevm.miplAddMapItem(mapItem = MapItem.Space())
-                        coroutineScope.launch {
-                            sheetState.hide()
-                        }.invokeOnCompletion {
-                            isBottomSheetVisible = false
-                        }
-                    }
-                )
-                BottomSheetItem(
-                    icon = Icons.Default.AddPhotoAlternate,
-                    text = stringResource(id = R.string.map_editor_add_image),
-                    includeSpacer = false,
-                    //todo [BIG] import image
-                    itemOnClick = {
-                        coroutineScope.launch {
-                            sheetState.hide()
-                        }.invokeOnCompletion {
-                            isBottomSheetVisible = false
-                        }
-                    }
-                )
-            }
-        }
-    }
     Scaffold(
         contentWindowInsets = WindowInsets(left = 0),
         topBar = {
@@ -237,58 +188,62 @@ fun MapEditorUI(
                             )
                         }
                     },
-                    actions = {
-                        IconButton(
-                            //todo [small] what could this even do?
-                            onClick = {},
-                            content = {
-                                Icon(
-                                    imageVector = Icons.Default.MoreVert,
-                                    contentDescription = stringResource(R.string.contentDescription_more_map_options_in_map_editor)
-                                )
-                            }
-                        )
-                    }
+                    //uncomment if needed
+//                    actions = {
+//                        IconButton(
+//                            onClick = {},
+//                            content = {
+//                                Icon(
+//                                    imageVector = Icons.Default.MoreVert,
+//                                    contentDescription = stringResource(R.string.contentDescription_more_map_options_in_map_editor)
+//                                )
+//                            }
+//                        )
+//                    }
                 )
             }
         },
         floatingActionButton = {
             Column {
-                if(!isEditorModeEnabled){
-                    FloatingActionButton(
-                        onClick = {
-                            coroutineScope.launch {
-                                sheetState.show()
-                            }.invokeOnCompletion {
-                                isBottomSheetVisible = true
+                if (pagerState.pageCount != 0) {
+                    if (mapItemPagerList[pagerState.currentPage] is MapItem.Space) {
+                        if(numberOfSelectedNodes == 1) {
+                            FloatingActionButton(
+                                containerColor = MaterialTheme.colorScheme.secondary,
+                                onClick = {
+                                    mevm.changeNodeEditorSheetVisibility(value = true)
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = stringResource(id = R.string.contentDescription_add_new_content_in_map_editor)
+                                )
                             }
-                            currentActivity?.hideSystemStatusBar()
+                            Spacer(modifier = Modifier.height(height = 8.dp))
                         }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Construction,
-                            contentDescription = stringResource(id = R.string.contentDescription_add_new_content_in_map_editor)
-                        )
+                        FloatingActionButton(
+                            containerColor = MaterialTheme.colorScheme.secondary,
+                            onClick = {
+                                mevm.changeNodeSheetVisibility(value = true)
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Cable,
+                                contentDescription = stringResource(id = R.string.contentDescription_add_new_content_in_map_editor)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(height = 8.dp))
                     }
                 }
-
-                Spacer(modifier = Modifier.height(height = 8.dp))
-
                 FloatingActionButton(
                     onClick = {
-                        mevm.changeEditorModeState(value = !isEditorModeEnabled)
+                        isBottomSheetVisible = true
                         currentActivity?.hideSystemStatusBar()
                     }
                 ) {
                     Icon(
-                        imageVector = when (isEditorModeEnabled) {
-                            false -> Icons.Default.Edit
-                            true -> Icons.Default.EditOff
-                        },
-                        contentDescription = when (isEditorModeEnabled) {
-                            false -> stringResource(id =R.string.contentDescription_enable_reader_mode)
-                            true -> stringResource(id = R.string.contentDescription_enable_editor_mode)
-                        }
+                        imageVector = Icons.Default.Construction,
+                        contentDescription = stringResource(id = R.string.contentDescription_add_new_content_in_map_editor)
                     )
                 }
             }
@@ -326,14 +281,15 @@ fun MapEditorUI(
                                         mevm = mevm,
                                         mapItemUUID = currentPage.uuid,
                                         pagerState = pagerState,
-                                        onAddNode = { _, camera, longPressOffset ->
+                                        onAddNode = { canvasSize, camera, _ ->
                                             val mapItemUUID = currentPage.uuid
 
-                                            val longPressWorldPos = (longPressOffset - camera.offset) / camera.scale
+                                            val canvasCenterX = (canvasSize.width/2f - camera.offset.x) / camera.scale
+                                            val canvasCenterY = (canvasSize.height/2f - camera.offset.y) / camera.scale
 
                                             val defaultNodeOffset = Offset(
-                                                x = longPressWorldPos.x - defaultNodeWidth / 2f,
-                                                y = longPressWorldPos.y - defaultNodeHeight / 2f
+                                                x = canvasCenterX - defaultNodeWidth/2,
+                                                y = canvasCenterY - defaultNodeHeight/2
                                             )
 
                                             val defaultNode = MapItemObject.SpaceNode(
@@ -352,7 +308,6 @@ fun MapEditorUI(
                                             )
                                         },
                                         onNodeHit = { _, nodeUUID ->
-                                            //todo: add drag corners to the node, text editing and arrow creation
                                             mevm.miplSelectSpaceNode(
                                                 mapItemUUID = currentPage.uuid,
                                                 nodeUUID = nodeUUID,
@@ -411,6 +366,50 @@ fun MapEditorUI(
                         }
                     }
                 }
+            }
+        }
+    }
+    if(isBottomSheetVisible) {
+        ModalBottomSheet(
+            sheetState = sheetState,
+            onDismissRequest = {
+                coroutineScope.launch {
+                    sheetState.hide()
+                }.invokeOnCompletion {
+                    isBottomSheetVisible = false
+                }
+            }
+        ) {
+            Column(
+                modifier = Modifier.padding(all = 16.dp)
+            ) {
+                BottomSheetItem(
+                    icon = Icons.Default.Lightbulb,
+                    text = stringResource(id = R.string.map_editor_new_note),
+                    itemOnClick = {
+                        mevm.miplAddMapItem(mapItem = MapItem.Note())
+                        coroutineScope.launch {
+                            sheetState.hide()
+                        }.invokeOnCompletion {
+                            isBottomSheetVisible = false
+                        }
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(height = 8.dp))
+
+                BottomSheetItem(
+                    icon = Icons.Default.Cable,
+                    text = stringResource(R.string.map_editor_new_space),
+                    itemOnClick = {
+                        mevm.miplAddMapItem(mapItem = MapItem.Space())
+                        coroutineScope.launch {
+                            sheetState.hide()
+                        }.invokeOnCompletion {
+                            isBottomSheetVisible = false
+                        }
+                    }
+                )
             }
         }
     }

@@ -1,4 +1,4 @@
-package com.frozy.mindmap.mapeditor.models
+package com.frozy.mindmap.mapeditor.space.models
 
 import java.util.UUID
 

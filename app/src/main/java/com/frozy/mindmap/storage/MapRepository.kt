@@ -171,8 +171,10 @@ class MapRepository(private val context: Context) {
 
     suspend fun createMapFileInAppStorage(mapName: String): OperationResult {
         withContext(context = Dispatchers.IO) {
-
+            val mapName = mapName.sanitizeAndEnsureExtension()
             val file = File(context.filesDir, mapName)
+            Log.d("", "mapName: $mapName")
+            Log.d("", "file: $file")
 
             try {
                 if (!file.exists()) {
@@ -202,11 +204,15 @@ class MapRepository(private val context: Context) {
 
     suspend fun createMapFileInDeviceStorage(mapName: String, uri: Uri): OperationResult {
         withContext(context = Dispatchers.IO) {
-
+            val mapName = mapName.sanitizeAndEnsureExtension()
             try {
                 context.contentResolver.openOutputStream(uri)?.use { stream ->
                     stream.write("{}".toByteArray())
                 }
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
             } catch (e: FileNotFoundException) {
                 e.printStackTrace()
                 OperationResult.Error(e = e)
@@ -280,6 +286,7 @@ class MapRepository(private val context: Context) {
         return withContext(context = Dispatchers.IO) {
             val metadata = resolveMetadata(entryUUID)
             val sanitizedName = newMapName.sanitizeAndEnsureExtension()
+            Log.v("", "permsBefore: ${context.contentResolver.persistedUriPermissions}")
             try {
                 val newUri = DocumentsContract.renameDocument(
                     context.contentResolver,
@@ -290,16 +297,17 @@ class MapRepository(private val context: Context) {
                 ) ?: return@withContext OperationResult.Error(
                     e = IOException("Rename returned null")
                 )
-
-                try {
-                    context.contentResolver.takePersistableUriPermission(
-                        newUri,
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                    )
-                } catch (e: SecurityException) {
-                    e.printStackTrace()
-                    Log.w("URI_PERMISSION", "Map creation SecurityException from $newUri", e)
-                }
+                Log.v("", "permsAfter: ${context.contentResolver.persistedUriPermissions}")
+                //todo fix this!!!
+//                try {
+//                    context.contentResolver.takePersistableUriPermission(
+//                        newUri,
+//                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+//                    )
+//                } catch (e: SecurityException) {
+//                    e.printStackTrace()
+//                    Log.w("URI_PERMISSION", "Map creation SecurityException from $newUri", e)
+//                }
 
                 renameDeviceStorageMetadataEntry(
                     newUri = newUri,

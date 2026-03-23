@@ -53,4 +53,10 @@
     <string name="toast_file_rename_success">Map renamed.</string>
     <string name="toast_file_rename_fail">Failed to rename map.</string>
     <string name="toast_number_of_already_existing_maps">%1$s of the selected maps already exist.</string>
+    <string name="default_space_node_text">Type here</string>
+    <string name="contentDescription_delete_selected_nodes_option">Delete selected nodes option</string>
+    <string name="delete_selected_nodes_label">Delete selected nodes</string>
+    <string name="node_editor_sheet_border_color_label">Border color</string>
+    <string name="node_editor_sheet_background_color_label">Background color</string>
+    <string name="contentDescription_custom_color_selector">Custom color selector</string>
 </resources>

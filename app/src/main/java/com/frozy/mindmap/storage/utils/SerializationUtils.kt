@@ -4,8 +4,8 @@ import android.net.Uri
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
-import com.frozy.mindmap.mapeditor.models.MapItem
-import com.frozy.mindmap.mapeditor.models.MapItemObject
+import com.frozy.mindmap.mapeditor.space.models.MapItem
+import com.frozy.mindmap.mapeditor.space.models.MapItemObject
 import com.frozy.mindmap.storage.models.serializables.ImageData
 import com.frozy.mindmap.storage.models.serializables.NoteData
 import com.frozy.mindmap.storage.models.serializables.SpaceData

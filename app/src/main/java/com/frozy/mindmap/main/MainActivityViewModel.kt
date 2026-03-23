@@ -1,6 +1,7 @@
 package com.frozy.mindmap.main
 
 import android.app.Application
+import android.content.Intent
 import com.frozy.mindmap.R
 import android.net.Uri
 import android.util.Log
@@ -32,7 +33,6 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     val mapEntryList: StateFlow<List<MapListEntry>> =
         repository.metadataMap.map { metadataMap ->
             metadataMap.map { (uuid, metadata) ->
-
                 MapListEntry(
                     uuid = uuid,
                     name = metadata.fileName.removeSuffix(suffix = APP_FILE_EXTENSION).removeSuffix(suffix = ".json"),
@@ -42,7 +42,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             }.sortedByDescending { it.lastModified }
         }.stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
+            started = SharingStarted.WhileSubscribed(),
             initialValue = emptyList()
         )
 
@@ -54,10 +54,10 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         viewModelScope.launch(context = Dispatchers.IO) {
             //retrieve uris from the persistent storage
             val uris = context.contentResolver.persistedUriPermissions.map { it.uri }
-            Log.v("", "$uris")
+            Log.v("", "initUris: $uris")
 
             //make the user's files from app storage appear
-            val opRes = repository.loadMapFilesFromAppStorage()
+            repository.loadMapFilesFromAppStorage()
 
             //make the user's files from device storage appear
             repository.importMapFilesFromUris(uris)
@@ -75,19 +75,8 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                 .toSet()
 
             //filter out uris that already exist
-            val urisString = uris.map { it.toString() }
-            val filteredUriss = userSelectedUris.filterNot { it in uris }
-            val filteredUris = userSelectedUris.map { it.toString() }
-                .filterNot { it in urisString }
-            val existingUris = userSelectedUris.map { it.toString() }
-                .filter { it in urisString }
-            val filteredCount = userSelectedUris.size - filteredUris.size
-
-            Log.d("", "userSelectedUris: $userSelectedUris")
-            Log.d("", "uris: $uris")
-            Log.d("", "existingUris: $existingUris")
-            Log.d("", "filteredUris: $filteredUris")
-            Log.d("", "filteredCount: $filteredCount")
+            val userSelectedUrisNoDupes = userSelectedUris.filterNot { it in uris }
+            val filteredCount = userSelectedUris.size - userSelectedUrisNoDupes.size
 
             //show toast if something was filtered
             if (filteredCount > 0) {
@@ -99,7 +88,18 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                 )
             }
 
-            repository.importMapFilesFromUris(filteredUriss)
+            userSelectedUris.forEach { uri ->
+                try {
+                    //make uris accessible even after app restarts. Also saves them to disk
+                    context.contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    )
+                } catch (e: SecurityException) {
+                    Log.w("file import", "SecurityException from $uri when applying persistence", e)
+                }
+            }
+            repository.importMapFilesFromUris(uris = userSelectedUrisNoDupes)
         }
     }
 

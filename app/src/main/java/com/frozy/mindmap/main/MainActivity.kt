@@ -124,7 +124,6 @@ fun MainActivityUI(mavm: MainActivityViewModel) {
     var isBottomSheetVisible by remember { mutableStateOf(value = false) }
     val sheetState = rememberModalBottomSheetState()
 
-
     val toastFileSavingCancelled = stringResource(id = R.string.toast_file_saving_cancelled)
     val toastFilePickerCancelled = stringResource(id = R.string.toast_file_picker_cancelled)
 
@@ -145,6 +144,13 @@ fun MainActivityUI(mavm: MainActivityViewModel) {
                 message,
                 event.toastLength
             ).show()
+        }
+    }
+
+    //avoids race conditions with the composable being toggled with if() and .show() animation
+    LaunchedEffect(key1 = isBottomSheetVisible) {
+        if (isBottomSheetVisible) {
+            sheetState.show()
         }
     }
 
@@ -184,17 +190,6 @@ fun MainActivityUI(mavm: MainActivityViewModel) {
             Toast.makeText(context, toastFilePickerCancelled, Toast.LENGTH_SHORT).show()
             return@rememberLauncherForActivityResult
         }
-        uris.forEach { uri ->
-            try {
-                //make uris accessible even after app restarts. Also saves them to disk
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                )
-            } catch (e: SecurityException) {
-                Log.w("URI_PERMISSION", "File import SecurityException from $uri", e)
-            }
-        }
 
         mavm.importMaps(userSelectedUris = uris)
     }
@@ -208,18 +203,6 @@ fun MainActivityUI(mavm: MainActivityViewModel) {
                         style = MaterialTheme.typography.titleLarge
                     )
                 },
-                actions = {
-//                    IconButton(
-//                        onClick = { context.openSettingsActivity() },
-//                        content = {
-//                            Icon(
-//                                imageVector = Icons.Default.Settings,
-//                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-//                                contentDescription = stringResource(id = R.string.contentDescription_settings_iconButton)
-//                            )
-//                        }
-//                    )
-                },
                 colors = topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.secondaryContainer
                 )
@@ -228,11 +211,8 @@ fun MainActivityUI(mavm: MainActivityViewModel) {
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    coroutineScope.launch {
-                        sheetState.show()
-                    }.invokeOnCompletion {
-                        isBottomSheetVisible = true
-                    } }
+                    isBottomSheetVisible = true
+                }
             ) {
                 Icon(
                     imageVector = Icons.Filled.Add,
@@ -372,42 +352,6 @@ fun MainActivityUI(mavm: MainActivityViewModel) {
                     }
                 }
             }
-
-            if(isBottomSheetVisible) {
-                ModalBottomSheet(
-                    sheetState = sheetState,
-                    onDismissRequest = {
-                        coroutineScope.launch {
-                            sheetState.hide()
-                        }.invokeOnCompletion {
-                            isBottomSheetVisible = false
-                        }
-                    }
-                ) {
-                    Column(
-                        modifier = Modifier.padding(all = 16.dp)
-                    ) {
-                        BottomSheetItem(
-                            icon = Icons.Default.Add,
-                            text = stringResource(id = R.string.create_new_file_title),
-                            itemOnClick = { isCreateDialogVisible = true }
-                        )
-                        BottomSheetItem(
-                            icon = Icons.Default.ImportExport,
-                            text = stringResource(id = R.string.import_file),
-                            itemOnClick = {
-                                importFilesLauncher.launch(input = arrayOf("*/*"))
-                                coroutineScope.launch {
-                                    sheetState.hide()
-                                }.invokeOnCompletion {
-                                    isBottomSheetVisible = false
-                                }
-                            },
-                            includeSpacer = false
-                        )
-                    }
-                }
-            }
         }
     }
 
@@ -481,6 +425,44 @@ fun MainActivityUI(mavm: MainActivityViewModel) {
                         )
                         isDeleteConfirmationVisible = false
                         mapEntryBeingEdited = null
+                    }
+                )
+            }
+        }
+    }
+
+    if(isBottomSheetVisible) {
+        ModalBottomSheet(
+            sheetState = sheetState,
+            onDismissRequest = {
+                coroutineScope.launch {
+                    sheetState.hide()
+                }.invokeOnCompletion {
+                    isBottomSheetVisible = false
+                }
+            }
+        ) {
+            Column(
+                modifier = Modifier.padding(all = 16.dp)
+            ) {
+                BottomSheetItem(
+                    icon = Icons.Default.Add,
+                    text = stringResource(id = R.string.create_new_file_title),
+                    itemOnClick = { isCreateDialogVisible = true }
+                )
+
+                Spacer(modifier = Modifier.height(height = 8.dp))
+
+                BottomSheetItem(
+                    icon = Icons.Default.ImportExport,
+                    text = stringResource(id = R.string.import_file),
+                    itemOnClick = {
+                        importFilesLauncher.launch(input = arrayOf("*/*"))
+                        coroutineScope.launch {
+                            sheetState.hide()
+                        }.invokeOnCompletion {
+                            isBottomSheetVisible = false
+                        }
                     }
                 )
             }

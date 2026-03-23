@@ -1,4 +1,4 @@
-package com.frozy.mindmap.mapeditor.models
+package com.frozy.mindmap.mapeditor.space.models
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -20,6 +20,7 @@ sealed class InteractionType {
     data class NodeResize(
         val nodeId: UUID,
         val selectedHandle: Rect,
+        val startHandleOffset: Offset,
         val startPointerOffset: Offset,
         val startNodeWidth: Float,
         val startNodeHeight: Float,
@@ -34,6 +35,11 @@ sealed class InteractionType {
     data class CanvasLongPress(
         val startPointerOffset: Offset,
         val startTimeMillis: Long
+    ) : InteractionType()
+
+    data class CanvasTransform(
+        val startCameraOffset: Offset,
+        val startCameraScale: Float
     ) : InteractionType()
 }
 

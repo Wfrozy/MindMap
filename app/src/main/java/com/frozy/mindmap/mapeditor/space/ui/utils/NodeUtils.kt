@@ -4,14 +4,14 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import com.frozy.mindmap.mapeditor.models.MapItemObject
-import com.frozy.mindmap.mapeditor.models.NodeResizeHandles
-import com.frozy.mindmap.mapeditor.models.SpaceCameraState
-import com.frozy.mindmap.mapeditor.models.NodeLayout
-import com.frozy.mindmap.mapeditor.models.NodeArrowHandles
-import com.frozy.mindmap.mapeditor.models.NodeArrowHandleValues
-import com.frozy.mindmap.mapeditor.models.NodeLayoutValues
-import com.frozy.mindmap.mapeditor.models.NodeResizeHandleValues
+import com.frozy.mindmap.mapeditor.space.models.MapItemObject
+import com.frozy.mindmap.mapeditor.space.models.NodeResizeHandles
+import com.frozy.mindmap.mapeditor.space.models.SpaceCameraState
+import com.frozy.mindmap.mapeditor.space.models.NodeLayout
+import com.frozy.mindmap.mapeditor.space.models.NodeArrowHandles
+import com.frozy.mindmap.mapeditor.space.constants.models.NodeArrowHandleValues
+import com.frozy.mindmap.mapeditor.space.constants.models.NodeLayoutValues
+import com.frozy.mindmap.mapeditor.space.constants.models.NodeResizeHandleValues
 
 fun MapItemObject.SpaceNode.buildNodeLayout(
     camera: SpaceCameraState
@@ -32,8 +32,8 @@ fun MapItemObject.SpaceNode.buildNodeLayout(
         size = Size(scaledNodeWidth, scaledNodeHeight)
     )
 
-    val handleWidth = NodeResizeHandleValues.WIDTH
-    val handleHeight = NodeResizeHandleValues.HEIGHT
+    val handleWidth = NodeResizeHandleValues.NODE_RESIZE_HANDLE_WIDTH
+    val handleHeight = NodeResizeHandleValues.NODE_RESIZE_HANDLE_HEIGHT
     val nodeTopLeft = nodeHitbox.topLeft
 
     val resizeHandles = NodeResizeHandles(

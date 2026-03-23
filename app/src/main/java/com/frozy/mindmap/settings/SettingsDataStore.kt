@@ -1,4 +1,4 @@
-package com.frozy.mindmap.persistence
+package com.frozy.mindmap.settings
 
 import android.content.Context
 import androidx.datastore.core.DataStore

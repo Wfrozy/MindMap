@@ -20,10 +20,12 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
-import com.frozy.mindmap.mapeditor.models.NodeArrowHandleValues
-import com.frozy.mindmap.mapeditor.models.NodeLayout
-import com.frozy.mindmap.mapeditor.models.NodeResizeHandleValues
-import com.frozy.mindmap.mapeditor.models.SpaceCameraState
+import com.frozy.mindmap.mapeditor.space.constants.models.NodeArrowHandleValues
+import com.frozy.mindmap.mapeditor.space.models.NodeLayout
+import com.frozy.mindmap.mapeditor.space.constants.models.NodeResizeHandleValues.NODE_RESIZE_HANDLE_HEIGHT
+import com.frozy.mindmap.mapeditor.space.constants.models.NodeResizeHandleValues.NODE_RESIZE_HANDLE_WIDTH
+import com.frozy.mindmap.mapeditor.space.models.SpaceCameraState
+import com.frozy.mindmap.ui.utils.strengthen
 import kotlin.math.ceil
 import kotlin.math.floor
 
@@ -129,13 +131,17 @@ fun DrawScope.drawBoundaryArrow(
 fun DrawScope.drawNode(
     layout: NodeLayout,
     camera: SpaceCameraState,
-    selectedNodeBorderColor: Color,
+    fallbackSelectedBorderColor: Color,
     arrowUpPainter: VectorPainter,
     arrowDownPainter: VectorPainter,
     arrowLeftPainter: VectorPainter,
     arrowRightPainter: VectorPainter,
     textMeasurer: TextMeasurer
 ) {
+    val fallbackSelectedBorderColor = fallbackSelectedBorderColor.copy(
+        alpha = fallbackSelectedBorderColor.alpha*0.2f
+    )
+
     val nodeTopLeft = layout.nodeHitbox.topLeft
     val nodeWidth = layout.nodeHitbox.width
     val nodeHeight = layout.nodeHitbox.height
@@ -200,29 +206,28 @@ fun DrawScope.drawNode(
     if(layout.node.isSelected){
         //outline border
         drawRoundRect(
-            color = selectedNodeBorderColor,
+            color = layout.node.borderColor?.strengthen() ?: fallbackSelectedBorderColor,
             style = Stroke(width = outlineWidth * 2f),
             topLeft = nodeTopLeft,
             size = Size(nodeWidth, nodeHeight),
             cornerRadius = cornerRadius
         )
 
-        val handleWidth = NodeResizeHandleValues.WIDTH
-        val handleHeight = NodeResizeHandleValues.HEIGHT
+        val handleWidth = NODE_RESIZE_HANDLE_WIDTH
+        val handleHeight = NODE_RESIZE_HANDLE_HEIGHT
         val handleStrokeWidth = outlineWidth / 1.5f
         val handleCornerRadius = CornerRadius(x = cornerRadius.x / 2f, y = cornerRadius.y / 2f)
 
-
-        //top left corner outline
+        //top left resize handle outline
         drawRoundRect(
-            color = selectedNodeBorderColor,
+            color = layout.node.borderColor?.strengthen() ?: fallbackSelectedBorderColor,
             style = Stroke(width = handleStrokeWidth),
             topLeft = layout.resizeHandles.topLeft.topLeft,
             size = Size(handleWidth, handleHeight),
             cornerRadius = handleCornerRadius
         )
 
-        //top left corner fill
+        //top left resize handle fill
         drawRoundRect(
             color = layout.node.backgroundColor ?: Color.Transparent,
             topLeft = layout.resizeHandles.topLeft.topLeft,
@@ -232,16 +237,16 @@ fun DrawScope.drawNode(
 
 
 
-        //top right corner outline
+        //top right resize handle outline
         drawRoundRect(
-            color = selectedNodeBorderColor,
+            color = layout.node.borderColor?.strengthen() ?: fallbackSelectedBorderColor,
             style = Stroke(width = handleStrokeWidth),
             topLeft = layout.resizeHandles.topRight.topLeft,
             size = Size(handleWidth, handleHeight),
             cornerRadius = handleCornerRadius
         )
 
-        //top right corner fill
+        //top right resize handle fill
         drawRoundRect(
             color = layout.node.backgroundColor ?: Color.Transparent,
             topLeft = layout.resizeHandles.topRight.topLeft,
@@ -251,16 +256,16 @@ fun DrawScope.drawNode(
 
 
 
-        //bottom left corner outline
+        //bottom left resize handle outline
         drawRoundRect(
-            color = selectedNodeBorderColor,
+            color = layout.node.borderColor?.strengthen() ?: fallbackSelectedBorderColor,
             style = Stroke(width = handleStrokeWidth),
             topLeft = layout.resizeHandles.bottomLeft.topLeft,
             size = Size(handleWidth, handleHeight),
             cornerRadius = handleCornerRadius
         )
 
-        //bottom left corner fill
+        //bottom left resize handle fill
         drawRoundRect(
             color = layout.node.backgroundColor ?: Color.Transparent,
             topLeft = layout.resizeHandles.bottomLeft.topLeft,
@@ -270,45 +275,24 @@ fun DrawScope.drawNode(
 
 
 
-        //bottom right corner outline
+        //bottom right resize handle outline
         drawRoundRect(
-            color = selectedNodeBorderColor,
+            color = layout.node.borderColor?.strengthen() ?: fallbackSelectedBorderColor,
             style = Stroke(width = handleStrokeWidth),
             topLeft = layout.resizeHandles.bottomRight.topLeft,
             size = Size(handleWidth, handleHeight),
             cornerRadius = handleCornerRadius
         )
 
-        //bottom right corner fill
+        //bottom right resize handle fill
         drawRoundRect(
             color = layout.node.backgroundColor ?: Color.Transparent,
             topLeft = layout.resizeHandles.bottomRight.topLeft,
             size = Size(handleWidth, handleHeight),
             cornerRadius = handleCornerRadius
         )
-
-        val centerX = nodeTopLeft.x + nodeWidth / 2
-        val centerY = nodeTopLeft.y + nodeHeight / 2
 
         val arrowSize = NodeArrowHandleValues.WIDTH_AND_HEIGHT.dp.toPx()
-        val arrowOffset = NodeArrowHandleValues.PADDING_FROM_NODE.dp.toPx()
-
-        val topArrowOffset = Offset(
-            x = centerX - arrowSize / 2,
-            y = nodeTopLeft.y - arrowOffset - arrowSize
-        )
-        val bottomArrowOffset = Offset(
-            x = centerX - arrowSize / 2,
-            y = nodeTopLeft.y + nodeHeight + arrowOffset
-        )
-        val leftArrowOffset = Offset(
-            x = nodeTopLeft.x - arrowOffset - arrowSize,
-            y = centerY - arrowSize / 2
-        )
-        val rightArrowOffset = Offset(
-            x = nodeTopLeft.x + nodeWidth + arrowOffset,
-            y = centerY - arrowSize / 2
-        )
 
         //top arrow
         withTransform(
