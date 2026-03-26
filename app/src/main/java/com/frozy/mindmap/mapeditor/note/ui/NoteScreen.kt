@@ -57,8 +57,8 @@ fun NoteScreen(
     var isTextFieldFocused by remember { mutableStateOf(value = false) }
     val lazyListState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
-    var title by remember(thisNote.uuid) { mutableStateOf(thisNote.titleText) }
-    var content by remember(thisNote.uuid) { mutableStateOf(thisNote.contentText) }
+    var title by remember(key1 = thisNote.uuid) { mutableStateOf(value = thisNote.titleText) }
+    var content by remember(key1 = thisNote.uuid) { mutableStateOf(value = thisNote.contentText) }
 
     BackHandler(enabled = isTextFieldFocused) {
         focusManager.clearFocus(force = true)

@@ -46,7 +46,7 @@
     <string name="map_editor_add_new_node">Add new node</string>
     <string name="contentDescription_map_editor_add_new_node">Add new node</string>
     <string name="note_screen_title_placeholder">Title</string>
-    <string name="note_screen_note_content_placeholder">Time to write!</string>
+    <string name="note_screen_note_content_placeholder">Content</string>
     <string name="file_deletion_confirmation_message">Are you sure you want to delete the map?</string>
     <string name="file_deletion_consequence_message">This will delete the file present on your device.</string>
     <string name="main_activity_select_map_header_text">Select map:</string>
@@ -59,4 +59,5 @@
     <string name="node_editor_sheet_border_color_label">Border color</string>
     <string name="node_editor_sheet_background_color_label">Background color</string>
     <string name="contentDescription_custom_color_selector">Custom color selector</string>
+    <string name="bottom_sheet_item_delete_current_map_item">Delete current map item</string>
 </resources>

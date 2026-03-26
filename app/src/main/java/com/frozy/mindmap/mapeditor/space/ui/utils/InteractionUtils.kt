@@ -21,21 +21,21 @@ fun categorizeHitAtType(
         //if node no nodes are selected, then no handles will be present, so just skip!
         if(!layout.node.isSelected){ continue }
 
-        layout.resizeHandles.entries.forEach { (handle, handleType) ->
-            if (handle.contains(pointerPos)) {
+        layout.resizeHandles.entries.forEach { (handleHitbox, handleType) ->
+            if (handleHitbox.contains(pointerPos)) {
                 return HitAt.HitNodeResizeHandle(
                     layout = layout,
-                    handleHitbox = handle,
+                    handleHitbox = handleHitbox,
                     handleType = handleType
                 )
             }
         }
 
-        layout.arrowHandles.entries.forEach { (arrow, arrowType) ->
-            if (arrow.contains(pointerPos)) {
+        layout.arrowHandles.entries.forEach { (arrowHitbox, arrowType) ->
+            if (arrowHitbox.contains(pointerPos)) {
                 return HitAt.HitNodeArrow(
                     layout = layout,
-                    arrowHitbox = arrow,
+                    arrowHitbox = arrowHitbox,
                     arrowType = arrowType,
                 )
             }

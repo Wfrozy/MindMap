@@ -11,7 +11,9 @@ sealed class MapItem(open val uuid: UUID) {
 
     data class Space(
         override val uuid: UUID = UUID.randomUUID(),
+        val cameraState: SpaceCameraState = SpaceCameraState(),
         val spaceNodeInfo: List<MapItemObject.SpaceNode> = emptyList(),
-        val imageInfo: List<MapItemObject.Image> = emptyList()
+        val imageInfo: List<MapItemObject.Image> = emptyList(),
+        val edges: List<MapItemObject.SpaceNodeConnection> = emptyList()
     ) : MapItem(uuid)
 }

@@ -2,9 +2,9 @@ package com.frozy.mindmap.mapeditor
 
 import android.app.Application
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.frozy.mindmap.MindMapApplication
 import com.frozy.mindmap.mapeditor.space.models.MapItem
 import com.frozy.mindmap.mapeditor.space.models.MapItemObject
 import com.frozy.mindmap.mapeditor.space.models.ResizeHandleType
@@ -24,6 +24,9 @@ class MapEditorViewModel(application: Application) : AndroidViewModel(applicatio
 
     //just in case I need context
     val context = getApplication<Application>()
+
+    //typecast to MindMapApplication (Application inherits to it)
+    val repository = (application as MindMapApplication).mapRepository
 
     private val _isEditorModeEnabled = MutableStateFlow(value = false)
     val isEditorModeEnabled: StateFlow<Boolean> = _isEditorModeEnabled.asStateFlow()
@@ -57,11 +60,11 @@ class MapEditorViewModel(application: Application) : AndroidViewModel(applicatio
     val isNodeEditorSheetVisible = _isNodeEditorSheetVisible.asStateFlow()
     fun changeNodeEditorSheetVisibility(value: Boolean) { _isNodeEditorSheetVisible.update { value }}
 
-    init { //todo file stuff
-        viewModelScope.launch {
+    private val _initialPageIndex = MutableStateFlow(value = 0)
+    val initialPageIndex: StateFlow<Int> = _initialPageIndex.asStateFlow()
 
-        }
-    }
+    private val _isMapLoadingFinished = MutableStateFlow(value = false)
+    val isMapLoadingFinished: StateFlow<Boolean> = _isMapLoadingFinished.asStateFlow()
 
     fun miplAddMapItem(mapItem: MapItem){
         _mapItemPagerList.update { list ->
@@ -271,11 +274,52 @@ class MapEditorViewModel(application: Application) : AndroidViewModel(applicatio
         mapItemUUID: UUID,
         fromNodeUUID: UUID,
         toNodeUUID: UUID
-    ){
+    ) {
+        _mapItemPagerList.update { mipl ->
+            mipl.map { mapItem ->
+                if (mapItem.uuid != mapItemUUID || mapItem !is MapItem.Space) return@map mapItem
 
+                // avoid duplicate edges between the same two nodes
+                val alreadyExists = mapItem.edges.any { edge ->
+                    (edge.fromNodeUUID == fromNodeUUID && edge.toNodeUUID == toNodeUUID) ||
+                            (edge.fromNodeUUID == toNodeUUID && edge.toNodeUUID == fromNodeUUID)
+                }
+                if (alreadyExists) return@map mapItem
+
+                mapItem.copy(edges = mapItem.edges + MapItemObject.SpaceNodeConnection(
+                    fromNodeUUID = fromNodeUUID,
+                    toNodeUUID = toNodeUUID
+                )
+                )
+            }
+        }
+    }
+
+    fun miplRemoveEdge(
+        mapItemUUID: UUID,
+        edgeUUID: UUID
+    ) {
+        _mapItemPagerList.update { mipl ->
+            mipl.map { mapItem ->
+                if (mapItem.uuid != mapItemUUID || mapItem !is MapItem.Space) return@map mapItem
+                mapItem.copy(edges = mapItem.edges.filterNot { it.uuid == edgeUUID })
+            }
+        }
     }
 
     fun clearArrowDragPreview(){}
+
+    fun miplUpdateSpaceCamera(mapItemUUID: UUID, camera: SpaceCameraState) {
+        _mapItemPagerList.update { list ->
+            list.map { mapItem ->
+                if (mapItem is MapItem.Space && mapItem.uuid == mapItemUUID) {
+                    mapItem.copy(cameraState = camera)
+                } else {
+                    mapItem
+                }
+            }
+        }
+    }
 
     //Note stuff --------------------------
 
@@ -312,5 +356,35 @@ class MapEditorViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun updateCurrentPageIndex(currentPage: Int) {
+        _initialPageIndex.update { currentPage }
+    }
+
+    fun saveMap(entryUUID: UUID) {
+        viewModelScope.launch {
+            repository.saveMap(
+                entryUUID,
+                mapItems = _mapItemPagerList.value,
+                lastPageIndex = _initialPageIndex.value
+            )
+        }
+    }
+
+    fun loadMap(entryUUID: UUID) {
+        viewModelScope.launch {
+            val loadedMapData = repository.loadMap(
+                entryUUID,
+                lastPageIndex = _initialPageIndex.value
+            )
+            //todo toasts
+            _mapItemPagerList.update {
+                loadedMapData?.items ?: emptyList()
+            }
+            _initialPageIndex.update {
+                loadedMapData?.lastPageIndex ?: 0
+            }
+            _isMapLoadingFinished.update { true }
+        }
+    }
 }
 

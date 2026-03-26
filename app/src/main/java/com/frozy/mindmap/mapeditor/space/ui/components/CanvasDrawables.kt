@@ -20,10 +20,12 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
-import com.frozy.mindmap.mapeditor.space.constants.models.NodeArrowHandleValues
+import com.frozy.mindmap.mapeditor.space.constants.NodeArrowHandleValues
 import com.frozy.mindmap.mapeditor.space.models.NodeLayout
 import com.frozy.mindmap.mapeditor.space.constants.models.NodeResizeHandleValues.NODE_RESIZE_HANDLE_HEIGHT
 import com.frozy.mindmap.mapeditor.space.constants.models.NodeResizeHandleValues.NODE_RESIZE_HANDLE_WIDTH
+import com.frozy.mindmap.mapeditor.space.models.ArrowDragPreview
+import com.frozy.mindmap.mapeditor.space.models.MapItemObject
 import com.frozy.mindmap.mapeditor.space.models.SpaceCameraState
 import com.frozy.mindmap.ui.utils.strengthen
 import kotlin.math.ceil
@@ -292,7 +294,7 @@ fun DrawScope.drawNode(
             cornerRadius = handleCornerRadius
         )
 
-        val arrowSize = NodeArrowHandleValues.WIDTH_AND_HEIGHT.dp.toPx()
+        val arrowSize = NodeArrowHandleValues.ARROW_HANDLE_WIDTH_AND_HEIGHT.dp.toPx()
 
         //top arrow
         withTransform(
@@ -310,6 +312,7 @@ fun DrawScope.drawNode(
                 )
             }
         }
+
 
         //bottom arrow
         withTransform(
@@ -360,4 +363,95 @@ fun DrawScope.drawNode(
             }
         }
     }
+}
+
+fun DrawScope.drawEdges(
+    edges: List<MapItemObject.SpaceNodeConnection>,
+    layouts: List<NodeLayout>,
+    edgeColor: Color
+) {
+    val layoutMap = layouts.associateBy { it.node.uuid }
+    val strokeWidth = 2.dp.toPx()
+    val arrowLength = 12.dp.toPx()
+
+    edges.forEach { edge ->
+        val fromLayout = layoutMap[edge.fromNodeUUID] ?: return@forEach
+        val toLayout = layoutMap[edge.toNodeUUID] ?: return@forEach
+
+        val fromCenter = fromLayout.nodeHitbox.center
+        val toCenter = toLayout.nodeHitbox.center
+
+        drawLine(
+            color = edgeColor,
+            start = fromCenter,
+            end = toCenter,
+            strokeWidth = 2.dp.toPx()
+        )
+
+        // normalized direction vector pointing toward the tip (end)
+        val raw       = toCenter - fromCenter
+        val length    = raw.getDistance()
+        if (length == 0f) return@forEach
+        val direction = raw / length
+
+        drawArrowhead(
+            tip         = toCenter,
+            direction   = direction,
+            arrowLength = arrowLength,
+            color       = edgeColor,
+            strokeWidth = strokeWidth
+        )
+    }
+}
+
+fun DrawScope.drawArrowDragPreview(
+    preview: ArrowDragPreview,
+    layouts: List<NodeLayout>,
+    edgeColor: Color
+) {
+    val fromLayout = layouts.firstOrNull { it.node.uuid == preview.fromNodeUUID } ?: return
+
+    drawLine(
+        color = edgeColor.copy(alpha = 0.5f),
+        start = fromLayout.nodeHitbox.center,
+        end = preview.currentScreenPos,
+        strokeWidth = 2.dp.toPx(),
+    )
+}
+
+private fun DrawScope.drawArrowhead(
+    tip: Offset,
+    direction: Offset, // normalized direction vector pointing TOWARD the tip
+    arrowLength: Float,
+    arrowAngle: Float = 30f,
+    color: Color,
+    strokeWidth: Float
+) {
+    val angleRad = Math.toRadians(arrowAngle.toDouble()).toFloat()
+
+    // rotate the direction vector left and right to get the two arrowhead lines
+    val cos = kotlin.math.cos(angleRad)
+    val sin = kotlin.math.sin(angleRad)
+
+    val leftWing = Offset(
+        x = direction.x * cos - direction.y * sin,
+        y = direction.x * sin + direction.y * cos
+    )
+    val rightWing = Offset(
+        x = direction.x * cos + direction.y * sin,
+        y = -direction.x * sin + direction.y * cos
+    )
+
+    drawLine(
+        color       = color,
+        start       = tip,
+        end         = tip - leftWing * arrowLength,
+        strokeWidth = strokeWidth
+    )
+    drawLine(
+        color       = color,
+        start       = tip,
+        end         = tip - rightWing * arrowLength,
+        strokeWidth = strokeWidth
+    )
 }

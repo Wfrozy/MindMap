@@ -4,7 +4,7 @@ import com.frozy.mindmap.constants.FeatureVersions
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class NoteData (
+data class NoteSerializable (
     val version: Int = FeatureVersions.NOTE_DATA_VERSION,
     val uuid: String,
     val titleText: String,

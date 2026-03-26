@@ -7,10 +7,16 @@ import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.util.Log
 import com.frozy.mindmap.constants.FileExtension.APP_FILE_EXTENSION
+import com.frozy.mindmap.mapeditor.space.models.MapItem
+import com.frozy.mindmap.storage.models.LoadedMapData
 import com.frozy.mindmap.storage.models.MapFileMetadata
 import com.frozy.mindmap.storage.models.OperationResult
 import com.frozy.mindmap.storage.models.StorageOption
+import com.frozy.mindmap.storage.models.serializables.MapFileSerializable
+import com.frozy.mindmap.storage.models.serializables.MapItemSerializable
 import com.frozy.mindmap.storage.utils.sanitizeAndEnsureExtension
+import com.frozy.mindmap.storage.utils.toDeserialized
+import com.frozy.mindmap.storage.utils.toSerializable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +27,7 @@ import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.util.UUID
+import kotlinx.serialization.json.Json
 
 class MapRepository(private val context: Context) {
 
@@ -355,7 +362,10 @@ class MapRepository(private val context: Context) {
         return withContext(context = Dispatchers.IO) {
             try {
                 //delete the file that has that specific uri
-                val wasDeleted = DocumentsContract.deleteDocument(context.contentResolver, metadata.uri!!)
+                val wasDeleted = DocumentsContract.deleteDocument(
+                    context.contentResolver,
+                    metadata.uri!!
+                )
 
                 //remove the stored uri
                 context.contentResolver.persistedUriPermissions.filterNot { uriPermission ->
@@ -381,6 +391,86 @@ class MapRepository(private val context: Context) {
             }
         }
     }
+
+    suspend fun saveMap(
+        entryUUID: UUID,
+        mapItems: List<MapItem>,
+        lastPageIndex: Int
+    ): OperationResult {
+        val metadata = resolveMetadata(entryUUID)
+
+        return withContext(context = Dispatchers.IO) {
+            try {
+                val fileData = MapFileSerializable(
+                    serializedItems = mapItems.map { item ->
+                        when (item) {
+                            is MapItem.Note -> MapItemSerializable.Note(data = item.toSerializable())
+                            is MapItem.Space -> MapItemSerializable.Space(data = item.toSerializable())
+                        }
+                    },
+                    lastPageIndex = lastPageIndex
+                )
+                val json = Json.encodeToString(value = fileData)
+
+                when (metadata.storedIn) {
+                    StorageOption.APP -> {
+                        File(context.filesDir, metadata.fileName).writeText(json)
+                    }
+                    StorageOption.DEVICE -> {
+                        //wt means write + truncate (not wintrader)
+                        context.contentResolver.openOutputStream(metadata.uri!!, "wt")?.use {
+                            it.write(json.toByteArray(Charsets.UTF_8))
+                        } ?: return@withContext OperationResult.Error(
+                            e = IOException("OutputStream was null")
+                        )
+                    }
+                }
+                OperationResult.Success
+            } catch (e: IOException) {
+                OperationResult.Error(e = e)
+            } catch (e: SecurityException) {
+                OperationResult.Error(e = e)
+            }
+        }
+    }
+
+    suspend fun loadMap(
+        entryUUID: UUID,
+        lastPageIndex: Int
+    ): LoadedMapData? {
+        val metadata = resolveMetadata(entryUUID)
+
+        return withContext(context = Dispatchers.IO) {
+            try {
+                val json = when (metadata.storedIn) {
+                    StorageOption.APP -> {
+                        File(context.filesDir, metadata.fileName).readText()
+                    }
+                    StorageOption.DEVICE -> {
+                        context.contentResolver.openInputStream(metadata.uri!!)?.use {
+                            it.bufferedReader(Charsets.UTF_8).readText()
+                        } ?: return@withContext null
+                    }
+                }
+
+                val fileData = Json.decodeFromString<MapFileSerializable>(string = json)
+                return@withContext LoadedMapData(
+                    items = fileData.serializedItems.map { item ->
+                        when (item) {
+                            is MapItemSerializable.Note  -> item.data.toDeserialized()
+                            is MapItemSerializable.Space -> item.data.toDeserialized()
+                        }
+                    },
+                    lastPageIndex = lastPageIndex
+                )
+            } catch (e: Exception) { //todo make this better
+                e.printStackTrace()
+                return@withContext null
+            }
+        }
+    }
+}
+
 
 //    //writes data (json text) to the selected uri (file path)
 //    suspend fun writeTextToUri(
@@ -603,4 +693,3 @@ class MapRepository(private val context: Context) {
 //            }
 //        }
 //    }
-}

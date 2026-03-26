@@ -55,15 +55,14 @@ import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.BOUNDARY_ARROW_SI
 import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.BOUNDARY_FADE_WIDTH
 import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.BOUNDARY_TOLERANCE
 import com.frozy.mindmap.mapeditor.space.models.HitAt
-import com.frozy.mindmap.mapeditor.space.models.InteractionType
 import com.frozy.mindmap.mapeditor.space.models.MapItem
 import com.frozy.mindmap.mapeditor.space.models.MapItemObject
-import com.frozy.mindmap.mapeditor.space.models.ResizeState
 import com.frozy.mindmap.mapeditor.space.models.SpaceCameraState
 import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.DRAG_THRESHOLD
 import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.MAX_OVERSCROLL
 import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.MAX_WORLD_X
 import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.MIN_WORLD_X
+import com.frozy.mindmap.mapeditor.space.models.ArrowDragPreview
 import com.frozy.mindmap.mapeditor.space.ui.utils.buildNodeLayout
 import com.frozy.mindmap.mapeditor.space.ui.utils.categorizeHitAtType
 import com.frozy.mindmap.mapeditor.space.ui.utils.returnHitNodeOrNull
@@ -105,8 +104,8 @@ fun SpaceScreen(
     }
 
 
-    var camera by remember { mutableStateOf(value = SpaceCameraState()) }
-    var interaction by remember { mutableStateOf<InteractionType>(value = InteractionType.Idle) }
+    var camera by remember { mutableStateOf(value = thisSpace.cameraState) }
+    var arrowDragPreview by remember { mutableStateOf<ArrowDragPreview?>(value = null) }
 
     //build all layouts at the start of the frame
     //rememberUpdatedState is for updating the value of layouts that .pointerInput() receives
@@ -189,8 +188,6 @@ fun SpaceScreen(
         Color(color = 0xFF42A5F5), //blue
     )
 
-
-
     val currentOverscrollValue =
         when {
             camera.offset.x < currentMinCameraX -> currentMinCameraX - camera.offset.x
@@ -237,16 +234,23 @@ fun SpaceScreen(
     }
 
 
-    LaunchedEffect(key1 = pagerState.currentPage) {
-        activity?.hideSystemStatusBar()
-        if (canvasSize != Size.Zero) {
-            camera = camera.copy(
-                offset = Offset(
-                    x = canvasSize.width / 2f,
-                    y = canvasSize.height / 2f
-                )
-            )
-        }
+//    LaunchedEffect(key1 = pagerState.currentPage) {
+//        activity?.hideSystemStatusBar()
+//        if (canvasSize != Size.Zero) {
+//            camera = camera.copy(
+//                offset = Offset(
+//                    x = canvasSize.width / 2f,
+//                    y = canvasSize.height / 2f
+//                )
+//            )
+//        }
+//    }
+
+    LaunchedEffect(key1 = camera) {
+        mevm.miplUpdateSpaceCamera(
+            mapItemUUID = mapItemUUID,
+            camera = camera
+        )
     }
 
     Box(
@@ -265,19 +269,9 @@ fun SpaceScreen(
 
                     when (hit) {
                         is HitAt.HitNodeResizeHandle -> {
-                            interaction = InteractionType.NodeResize(
-                                nodeId = hit.layout.node.uuid,
-                                selectedHandle = hit.handleHitbox,
-                                startHandleOffset = hit.handleHitbox.topLeft,
-                                startPointerOffset = firstDown.position,
-                                startNodeWidth = hit.layout.node.width,
-                                startNodeHeight = hit.layout.node.height,
-                                startNodeOffset = hit.layout.node.offset
-                            )
                             do {
                                 val event = awaitPointerEvent()
-                                val change =
-                                    event.changes.firstOrNull { it.id == firstDown.id } ?: break
+                                val change = event.changes.firstOrNull { it.id == firstDown.id } ?: break
                                 change.consume()
 
                                 val worldDelta = (change.position - firstDown.position) / camera.scale
@@ -292,8 +286,6 @@ fun SpaceScreen(
                                     startNodeOffset = hit.layout.node.offset
                                 )
                             } while (event.changes.any { it.pressed })
-
-                            interaction = InteractionType.Idle
                         }
 
                         is HitAt.HitNodeBody -> {
@@ -322,58 +314,46 @@ fun SpaceScreen(
                                     val worldDelta = (change.position - change.previousPosition) / camera.scale
                                     mevm.miplMoveSpaceNode(
                                         mapItemUUID = thisSpace.uuid,
-                                        nodeUUID    = hit.layout.node.uuid,
-                                        delta       = worldDelta
+                                        nodeUUID = hit.layout.node.uuid,
+                                        delta = worldDelta
                                     )
                                 }
                             } while (event.changes.any { it.pressed })
 
-                            // if the finger moved, it was a drag not a tap — don't open the editor
+                            //if the finger moved, it was a drag not a tap so don't open the editor
                             if (didDrag) editingNode = null
-
-                            interaction = InteractionType.Idle
                         }
 
                         //hit on node arrow
                         is HitAt.HitNodeArrow -> {
-                            interaction = InteractionType.NodeArrowDrag(
-                                nodeId = hit.layout.node.uuid,
-                                startPointerOffset = firstDown.position
-                            )
-
                             var currentPointerPos = firstDown.position
 
                             do {
-                                val event = awaitPointerEvent()
-                                //check to see if the first element in the event is the same as firstDown to prevent weird behavior
-                                val change = event.changes.firstOrNull { change ->
-                                    change.id == firstDown.id
-                                } ?: break
+                                val event  = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == firstDown.id } ?: break
                                 change.consume()
-
                                 currentPointerPos = change.position
 
-                                mevm.updateArrowDragPreview(
+                                arrowDragPreview = ArrowDragPreview(
                                     fromNodeUUID = hit.layout.node.uuid,
-                                    screenPos = currentPointerPos,
-                                    camera = camera
+                                    currentScreenPos = currentPointerPos
                                 )
                             } while (event.changes.any { it.pressed })
 
-                            //on release, check if pointer is over another node > create edge
+                            // check if released over a different node
                             val targetNode = returnHitNodeOrNull(
-                                layouts = layoutsState.value,
+                                layouts    = layoutsState.value,
                                 pointerPos = currentPointerPos
                             )
                             if (targetNode != null && targetNode.uuid != hit.layout.node.uuid) {
                                 mevm.miplCreateEdge(
-                                    mapItemUUID = thisSpace.uuid,
+                                    mapItemUUID  = thisSpace.uuid,
                                     fromNodeUUID = hit.layout.node.uuid,
-                                    toNodeUUID = targetNode.uuid
+                                    toNodeUUID   = targetNode.uuid
                                 )
                             }
-                            mevm.clearArrowDragPreview()
-                            interaction = InteractionType.Idle
+
+                            arrowDragPreview = null
                         }
 
                         //hit on canvas
@@ -423,7 +403,7 @@ fun SpaceScreen(
                                     )
                                     activePointers.forEach { it.consume() }
 
-                                    //pan to move around
+                                //pan to move around
                                 } else if (activePointers.size == 1) {
                                     val change = activePointers[0]
 
@@ -449,8 +429,6 @@ fun SpaceScreen(
                                 prevPositions = activePointers.associate { it.id to it.position }
 
                             } while (event.changes.any { it.pressed })
-
-                            interaction = InteractionType.Idle
                         }
                     }
                 }
@@ -498,6 +476,20 @@ fun SpaceScreen(
                     arrowLeftPainter = nodeArrowLeftPainter,
                     arrowRightPainter = nodeArrowRightPainter,
                     textMeasurer = textMeasurer
+                )
+            }
+
+            drawEdges(
+                edges = thisSpace.edges,
+                layouts = layouts,
+                edgeColor = edgeColor
+            )
+
+            arrowDragPreview?.let { preview ->
+                drawArrowDragPreview(
+                    preview = preview,
+                    layouts = layouts,
+                    edgeColor = edgeColor
                 )
             }
             

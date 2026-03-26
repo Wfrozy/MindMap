@@ -76,6 +76,8 @@ import com.frozy.mindmap.ui.utils.openSelectedMap
 import kotlinx.coroutines.launch
 import java.util.UUID
 
+//todo test import map with wrong extension
+
 class MainActivity : ComponentActivity() {
     private val mainActivityVM: MainActivityViewModel by viewModels()
 
@@ -291,8 +293,12 @@ fun MainActivityUI(mavm: MainActivityViewModel) {
                                     .fillParentMaxWidth()
                                     .padding(all = 10.dp)
                                     .clickable(onClick = {
+                                        //avoids overengineering, just resolve it in the UI layer
                                         val metadata = mavm.resolveMetadata(entryUUID = entry.uuid)
-                                        openSelectedMap(context, metadata)
+                                        context.openSelectedMap(
+                                            entryUUID = entry.uuid,
+                                            mapName = metadata.fileName
+                                        )
                                     })
                             ) {
                                 val mapIconHeight = 56.dp

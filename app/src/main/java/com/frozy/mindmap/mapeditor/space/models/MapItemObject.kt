@@ -30,4 +30,10 @@ sealed class MapItemObject(
         val text: String,
         val fontSize: TextUnit
     ) : MapItemObject(uuid, offset)
+
+    data class SpaceNodeConnection(
+        val uuid: UUID = UUID.randomUUID(),
+        val fromNodeUUID: UUID,
+        val toNodeUUID: UUID
+    )
 }

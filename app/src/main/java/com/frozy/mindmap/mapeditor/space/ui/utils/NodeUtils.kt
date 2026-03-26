@@ -9,9 +9,14 @@ import com.frozy.mindmap.mapeditor.space.models.NodeResizeHandles
 import com.frozy.mindmap.mapeditor.space.models.SpaceCameraState
 import com.frozy.mindmap.mapeditor.space.models.NodeLayout
 import com.frozy.mindmap.mapeditor.space.models.NodeArrowHandles
-import com.frozy.mindmap.mapeditor.space.constants.models.NodeArrowHandleValues
-import com.frozy.mindmap.mapeditor.space.constants.models.NodeLayoutValues
-import com.frozy.mindmap.mapeditor.space.constants.models.NodeResizeHandleValues
+import com.frozy.mindmap.mapeditor.space.constants.NodeArrowHandleValues.ARROW_HANDLE_SPACING_FROM_NODE
+import com.frozy.mindmap.mapeditor.space.constants.NodeArrowHandleValues.ARROW_HANDLE_WIDTH_AND_HEIGHT
+import com.frozy.mindmap.mapeditor.space.constants.models.NodeLayoutValues.NODE_CORNER_RADIUS_X
+import com.frozy.mindmap.mapeditor.space.constants.models.NodeLayoutValues.NODE_CORNER_RADIUS_Y
+import com.frozy.mindmap.mapeditor.space.constants.models.NodeLayoutValues.NODE_OUTLINE_WIDTH
+import com.frozy.mindmap.mapeditor.space.constants.models.NodeLayoutValues.NODE_TEXT_PADDING
+import com.frozy.mindmap.mapeditor.space.constants.models.NodeResizeHandleValues.NODE_RESIZE_HANDLE_HEIGHT
+import com.frozy.mindmap.mapeditor.space.constants.models.NodeResizeHandleValues.NODE_RESIZE_HANDLE_WIDTH
 
 fun MapItemObject.SpaceNode.buildNodeLayout(
     camera: SpaceCameraState
@@ -20,20 +25,20 @@ fun MapItemObject.SpaceNode.buildNodeLayout(
     val scaledOffset = (this.offset * camera.scale) + camera.offset
     val scaledNodeWidth = this.width * camera.scale
     val scaledNodeHeight = this.height * camera.scale
-    val nodeOutlineWidth = NodeLayoutValues.OUTLINE_WIDTH * camera.scale
+    val nodeOutlineWidth = NODE_OUTLINE_WIDTH * camera.scale
     val cornerRadius = CornerRadius(
-        x = NodeLayoutValues.CORNER_RADIUS_X * camera.scale,
-        y = NodeLayoutValues.CORNER_RADIUS_Y * camera.scale
+        x = NODE_CORNER_RADIUS_X * camera.scale,
+        y = NODE_CORNER_RADIUS_Y * camera.scale
     )
-    val textPadding = (NodeLayoutValues.TEXT_PADDING * camera.scale).toInt()
+    val textPadding = (NODE_TEXT_PADDING * camera.scale).toInt()
 
     val nodeHitbox = Rect(
         offset = scaledOffset,
         size = Size(scaledNodeWidth, scaledNodeHeight)
     )
 
-    val handleWidth = NodeResizeHandleValues.NODE_RESIZE_HANDLE_WIDTH
-    val handleHeight = NodeResizeHandleValues.NODE_RESIZE_HANDLE_HEIGHT
+    val handleWidth = NODE_RESIZE_HANDLE_WIDTH
+    val handleHeight = NODE_RESIZE_HANDLE_HEIGHT
     val nodeTopLeft = nodeHitbox.topLeft
 
     val resizeHandles = NodeResizeHandles(
@@ -73,40 +78,40 @@ fun MapItemObject.SpaceNode.buildNodeLayout(
     val centerX = nodeTopLeft.x + nodeHitbox.width/2
     val centerY = nodeTopLeft.y + nodeHitbox.height/2
 
-    val arrowSize = NodeArrowHandleValues.WIDTH_AND_HEIGHT
-    val arrowOffset = NodeArrowHandleValues.PADDING_FROM_NODE
+    val arrowSize = ARROW_HANDLE_WIDTH_AND_HEIGHT
+    val arrowSpacing = ARROW_HANDLE_SPACING_FROM_NODE
 
     val arrowHandles = NodeArrowHandles(
         top = Rect(
             offset = Offset(
                 x = centerX - arrowSize,
-                y = nodeHitbox.top - arrowOffset*2 - arrowSize*2
+                y = nodeHitbox.top - arrowSpacing*2 - arrowSize*2
             ),
-            Size(width = arrowSize, height = arrowSize)
+            Size(width = arrowSize*2, height = arrowSize*2)
         ),
 
         bottom = Rect(
             Offset(
                 x = centerX - arrowSize,
-                y = nodeHitbox.bottom + arrowOffset*2
+                y = nodeHitbox.bottom + arrowSpacing*2
             ),
-            Size(width = arrowSize, height = arrowSize)
+            Size(width = arrowSize*2, height = arrowSize*2)
         ),
 
         left = Rect(
             Offset(
-                x = nodeHitbox.left - arrowOffset*2 - arrowSize*2,
+                x = nodeHitbox.left - arrowSpacing*2 - arrowSize*2,
                 y = centerY - arrowSize
             ),
-            Size(width = arrowSize, height = arrowSize)
+            Size(width = arrowSize*2, height = arrowSize*2)
         ),
 
         right = Rect(
             Offset(
-                x = nodeHitbox.right + arrowOffset*2,
+                x = nodeHitbox.right + arrowSpacing*2,
                 y = centerY - arrowSize
             ),
-            Size(width = arrowSize,  height = arrowSize)
+            Size(width = arrowSize*2,  height = arrowSize*2)
         )
     )
     return NodeLayout(

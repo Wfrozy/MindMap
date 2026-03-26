@@ -2,6 +2,8 @@ package com.frozy.mindmap.mapeditor
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
@@ -29,10 +31,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowCircleLeft
 import androidx.compose.material.icons.filled.Cable
 import androidx.compose.material.icons.filled.Construction
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -58,6 +63,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -75,27 +81,37 @@ import com.frozy.mindmap.ui.theme.MindMapTypography
 import com.frozy.mindmap.ui.utils.hideSystemStatusBar
 import com.frozy.mindmap.ui.utils.lighten
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 //todo [BIG] images!
 
 class MapEditorActivity : ComponentActivity() {
-    private val mapEditorVM: MapEditorViewModel by viewModels()
+    private val mevm: MapEditorViewModel by viewModels()
+
+    private lateinit var entryUUIDFromIntent: UUID
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
     }
+
+    override fun onStop() {
+        super.onStop()
+        mevm.saveMap(entryUUID = entryUUIDFromIntent)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        val fileNameFromIntent = intent.getStringExtra("fileName") ?: "Unknown$APP_FILE_EXTENSION"
+        entryUUIDFromIntent = UUID.fromString(intent.getStringExtra("entryUUID"))
+        val mapNameFromIntent = intent.getStringExtra("mapName")
+        mevm.loadMap(entryUUID = entryUUIDFromIntent)
         enableEdgeToEdge()
         setContent {
             MindMapTheme {
                MapEditorUI(
-                   mevm = mapEditorVM,
+                   mevm = mevm,
                    backButtonOnClick = { finish() },
-                   fileNameFromIntent = fileNameFromIntent
+                   displayNameTitle = mapNameFromIntent
                )
             }
         }
@@ -107,16 +123,27 @@ class MapEditorActivity : ComponentActivity() {
 fun MapEditorUI(
     mevm: MapEditorViewModel,
     backButtonOnClick: () -> Unit,
-    fileNameFromIntent: String
+    displayNameTitle: String?
 ){
+    val context = LocalContext.current
+    val displayNameTitle = if(displayNameTitle == null) {
+        Toast.makeText(context, "Failed to get map name.", Toast.LENGTH_LONG).show()
+        "Unknown"
+    } else {
+        displayNameTitle
+    }
     val coroutineScope = rememberCoroutineScope()
 
     val sheetState = rememberModalBottomSheetState()
     var isBottomSheetVisible by remember { mutableStateOf(value = false) }
 
-    val fileNameFromIntentNoJson = fileNameFromIntent.removeSuffix(suffix = APP_FILE_EXTENSION)
+    val displayNameNoExtension = displayNameTitle
+        .removeSuffix(suffix = APP_FILE_EXTENSION)
+        .removeSuffix(suffix = ".json")
     val currentActivity = LocalActivity.current
 
+    val isMapLoadingFinished by mevm.isMapLoadingFinished.collectAsState()
+    val initialPageIndex by mevm.initialPageIndex.collectAsState()
     val isEditorModeEnabled by mevm.isEditorModeEnabled.collectAsState()
     val mapItemPagerList by mevm.mapItemPagerList.collectAsState()
     val allSelectedNodes by mevm.allSelectedNodes.collectAsState()
@@ -133,17 +160,35 @@ fun MapEditorUI(
     val defaultNodeFontSize = MaterialTheme.typography.bodyMedium.fontSize
 
     val pagerState = rememberPagerState(pageCount = { mapItemPagerList.size })
-    var isHorizontalPagerVisible by remember { mutableStateOf(value = false) }
+    var isHorizontalPagerVisible by remember { mutableStateOf(value = mapItemPagerList.isNotEmpty()) }
 
     BackHandler(enabled = isEditorModeEnabled) {
         mevm.changeEditorModeState(value = false)
     }
 
-    LaunchedEffect(key1 = mapItemPagerList.size) {
-        if (mapItemPagerList.isNotEmpty()){
-            pagerState.animateScrollToPage(page = mapItemPagerList.lastIndex)
+    LaunchedEffect(key1 = pagerState.currentPage) {
+        mevm.updateCurrentPageIndex(pagerState.currentPage)
+    }
+
+    LaunchedEffect(
+        key1 = mapItemPagerList.size,
+        key2 = isMapLoadingFinished
+    ) {
+        Log.v("", "LaunchedEffect isMapLoadingFinished: $isMapLoadingFinished")
+        if (!isMapLoadingFinished) return@LaunchedEffect
+
+        Log.v("", "LaunchedEffect mipl.size: ${mapItemPagerList.size}")
+        if (mapItemPagerList.isNotEmpty()) {
             isHorizontalPagerVisible = true
-        } else isHorizontalPagerVisible = false
+            val targetPage =
+                if (initialPageIndex < mapItemPagerList.size)
+                    initialPageIndex
+                else mapItemPagerList.lastIndex
+
+            if(targetPage > 0) { pagerState.scrollToPage(targetPage) }
+        } else {
+            isHorizontalPagerVisible = false
+        }
     }
 
     //avoids race conditions with the composable being toggled with if() and .show() animation
@@ -152,6 +197,7 @@ fun MapEditorUI(
             sheetState.show()
         }
     }
+
 
     DisposableEffect(key1 = isBottomSheetVisible) {
         currentActivity?.hideSystemStatusBar()
@@ -172,7 +218,7 @@ fun MapEditorUI(
                             content = {
                                 Icon(
                                     imageVector = Icons.Default.ArrowCircleLeft,
-                                    contentDescription = stringResource(R.string.contentDescription_back_button)
+                                    contentDescription = stringResource(id = R.string.contentDescription_back_button)
                                 )
                             }
                         )
@@ -183,23 +229,28 @@ fun MapEditorUI(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = fileNameFromIntentNoJson,
+                                text = displayNameNoExtension,
                                 style = MindMapTypography.titleLarge
                             )
                         }
                     },
-                    //uncomment if needed
-//                    actions = {
-//                        IconButton(
-//                            onClick = {},
-//                            content = {
-//                                Icon(
-//                                    imageVector = Icons.Default.MoreVert,
-//                                    contentDescription = stringResource(R.string.contentDescription_more_map_options_in_map_editor)
-//                                )
-//                            }
-//                        )
-//                    }
+                    actions = {
+                        IconButton(
+                            onClick = {
+                                Log.v("", "mipl: $mapItemPagerList")
+                                Log.v("", "initialPage: $initialPageIndex")
+                                Log.v("", "isMapLoadingFinished: $isMapLoadingFinished")
+                                Log.v("", "isHorizontalPagerVisible: $isHorizontalPagerVisible")
+                            },
+                            content = {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = stringResource(id = R.string.contentDescription_more_map_options_in_map_editor),
+                                    tint = Color.Transparent
+                                )
+                            }
+                        )
+                    }
                 )
             }
         },
@@ -252,94 +303,96 @@ fun MapEditorUI(
         Surface(
             modifier = Modifier.padding(paddingValues = innerPadding)
         ) {
-            AnimatedVisibility(
-                visible = isHorizontalPagerVisible,
-                enter = fadeIn()
-            ) {
-                Surface {
-                    Box {
-                        HorizontalPager(
-                            state = pagerState,
-                            modifier = Modifier.fillMaxWidth(),
-                            pageSpacing = 69.dp,
-                            beyondViewportPageCount = 1,
-                            key = { listIndex -> mapItemPagerList[listIndex].uuid }
-                        ) { i ->
-                            //Warning: currentPage is NOT REACTIVE!!!!!!!!! (definitely did not waste hours on a bug)
-                            when (val currentPage = mapItemPagerList[i]) {
-                                is MapItem.Note -> {
-                                    NoteScreen(
-                                        activity = currentActivity,
-                                        mevm = mevm,
-                                        mapItemUUID = currentPage.uuid,
-                                        pagerList = mapItemPagerList
-                                    )
-                                }
-                                is MapItem.Space -> {
-                                    SpaceScreen(
-                                        activity = currentActivity,
-                                        mevm = mevm,
-                                        mapItemUUID = currentPage.uuid,
-                                        pagerState = pagerState,
-                                        onAddNode = { canvasSize, camera, _ ->
-                                            val mapItemUUID = currentPage.uuid
+            if(isMapLoadingFinished) {
+                AnimatedVisibility(
+                    visible = isHorizontalPagerVisible,
+                    enter = fadeIn()
+                ) {
+                    Surface {
+                        Box {
+                            HorizontalPager(
+                                state = pagerState,
+                                modifier = Modifier.fillMaxWidth(),
+                                pageSpacing = 69.dp,
+                                beyondViewportPageCount = 1,
+                                key = { listIndex -> mapItemPagerList[listIndex].uuid }
+                            ) { i ->
+                                //Warning: currentPage is NOT REACTIVE!!!!!!!!! (definitely did not waste hours on a bug)
+                                when (val currentPage = mapItemPagerList[i]) {
+                                    is MapItem.Note -> {
+                                        NoteScreen(
+                                            activity = currentActivity,
+                                            mevm = mevm,
+                                            mapItemUUID = currentPage.uuid,
+                                            pagerList = mapItemPagerList
+                                        )
+                                    }
+                                    is MapItem.Space -> {
+                                        SpaceScreen(
+                                            activity = currentActivity,
+                                            mevm = mevm,
+                                            mapItemUUID = currentPage.uuid,
+                                            pagerState = pagerState,
+                                            onAddNode = { canvasSize, camera, _ ->
+                                                val mapItemUUID = currentPage.uuid
 
-                                            val canvasCenterX = (canvasSize.width/2f - camera.offset.x) / camera.scale
-                                            val canvasCenterY = (canvasSize.height/2f - camera.offset.y) / camera.scale
+                                                val canvasCenterX = (canvasSize.width/2f - camera.offset.x) / camera.scale
+                                                val canvasCenterY = (canvasSize.height/2f - camera.offset.y) / camera.scale
 
-                                            val defaultNodeOffset = Offset(
-                                                x = canvasCenterX - defaultNodeWidth/2,
-                                                y = canvasCenterY - defaultNodeHeight/2
-                                            )
+                                                val defaultNodeOffset = Offset(
+                                                    x = canvasCenterX - defaultNodeWidth/2,
+                                                    y = canvasCenterY - defaultNodeHeight/2
+                                                )
 
-                                            val defaultNode = MapItemObject.SpaceNode(
-                                                offset = defaultNodeOffset,
-                                                width = defaultNodeWidth,
-                                                height = defaultNodeHeight,
-                                                borderColor = defaultNodeBorderColor,
-                                                backgroundColor = defaultNodeBackgroundColor,
-                                                text = defaultNodeText,
-                                                fontSize = defaultNodeFontSize
-                                            )
+                                                val defaultNode = MapItemObject.SpaceNode(
+                                                    offset = defaultNodeOffset,
+                                                    width = defaultNodeWidth,
+                                                    height = defaultNodeHeight,
+                                                    borderColor = defaultNodeBorderColor,
+                                                    backgroundColor = defaultNodeBackgroundColor,
+                                                    text = defaultNodeText,
+                                                    fontSize = defaultNodeFontSize
+                                                )
 
-                                            mevm.miplAddSpaceNodeToSpace(
-                                                mapItemUUID = mapItemUUID,
-                                                node = defaultNode
-                                            )
-                                        },
-                                        onNodeHit = { _, nodeUUID ->
-                                            mevm.miplSelectSpaceNode(
-                                                mapItemUUID = currentPage.uuid,
-                                                nodeUUID = nodeUUID,
-                                            )
-                                        }
-                                    )
+                                                mevm.miplAddSpaceNodeToSpace(
+                                                    mapItemUUID = mapItemUUID,
+                                                    node = defaultNode
+                                                )
+                                            },
+                                            onNodeHit = { _, nodeUUID ->
+                                                mevm.miplSelectSpaceNode(
+                                                    mapItemUUID = currentPage.uuid,
+                                                    nodeUUID = nodeUUID,
+                                                )
+                                            }
+                                        )
+                                    }
                                 }
                             }
-                        }
-                        Row(
-                            horizontalArrangement = Arrangement.Center,
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .padding(bottom = 16.dp)
-                        ) {
-                            repeat(times = pagerState.pageCount) { index ->
-                                val color =
-                                    if (pagerState.currentPage == index) Color.White
-                                    else Color.Gray
+                            Row(
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = 16.dp)
+                            ) {
+                                repeat(times = pagerState.pageCount) { index ->
+                                    val color =
+                                        if (pagerState.currentPage == index) Color.White
+                                        else Color.Gray
 
-                                Box(
-                                    modifier = Modifier
-                                        .padding(all = 4.dp)
-                                        .size(size = 8.dp)
-                                        .background(color, CircleShape)
-                                )
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(all = 4.dp)
+                                            .size(size = 8.dp)
+                                            .background(color, CircleShape)
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
-            if(!isHorizontalPagerVisible) {
+            if(isMapLoadingFinished && !isHorizontalPagerVisible) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
@@ -400,7 +453,7 @@ fun MapEditorUI(
 
                 BottomSheetItem(
                     icon = Icons.Default.Cable,
-                    text = stringResource(R.string.map_editor_new_space),
+                    text = stringResource(id = R.string.map_editor_new_space),
                     itemOnClick = {
                         mevm.miplAddMapItem(mapItem = MapItem.Space())
                         coroutineScope.launch {
@@ -408,6 +461,16 @@ fun MapEditorUI(
                         }.invokeOnCompletion {
                             isBottomSheetVisible = false
                         }
+                    }
+                )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                BottomSheetItem(
+                    icon = Icons.Default.Delete,
+                    text = stringResource(id = R.string.bottom_sheet_item_delete_current_map_item),
+                    itemOnClick = {
+                        mevm.miplRemoveMapItem(mapItemUUID = mapItemPagerList[pagerState.currentPage].uuid)
                     }
                 )
             }

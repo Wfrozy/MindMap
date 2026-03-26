@@ -7,6 +7,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.frozy.mindmap.MindMapApplication
 import com.frozy.mindmap.constants.FileExtension.APP_FILE_EXTENSION
 import com.frozy.mindmap.main.models.MapListEntry
 import com.frozy.mindmap.main.models.ToastEvent
@@ -28,7 +29,9 @@ import java.util.UUID
 
 class MainActivityViewModel(application: Application) : AndroidViewModel(application) {
     private val context = getApplication<Application>()
-    private val repository = MapRepository(context = application)
+
+    //typecast to MindMapApplication (Application inherits to it)
+    val repository = (application as MindMapApplication).mapRepository
 
     val mapEntryList: StateFlow<List<MapListEntry>> =
         repository.metadataMap.map { metadataMap ->
