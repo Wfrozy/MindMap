@@ -2,7 +2,6 @@ package com.frozy.mindmap.main
 
 import android.annotation.SuppressLint
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -60,12 +59,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import com.frozy.mindmap.ui.components.CreateNewFileDialog
-import com.frozy.mindmap.ui.components.EditMapDialog
+import com.frozy.mindmap.main.ui.components.CreateNewFileDialog
+import com.frozy.mindmap.main.ui.components.EditMapDialog
 import com.frozy.mindmap.ui.components.BottomSheetItem
 import com.frozy.mindmap.ui.components.ExtraConfirmationDialog
 import com.frozy.mindmap.R
-import com.frozy.mindmap.constants.FileExtension.APP_FILE_EXTENSION
 import com.frozy.mindmap.main.models.MapListEntry
 import com.frozy.mindmap.storage.models.StorageOption
 import com.frozy.mindmap.storage.utils.sanitizeAndEnsureExtension

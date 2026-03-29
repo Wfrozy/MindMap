@@ -1,4 +1,4 @@
-package com.frozy.mindmap.ui.components
+package com.frozy.mindmap.main.ui.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -156,12 +156,12 @@ fun CreateNewFileDialog(
                 onClick = onConfirm,
                 enabled = !isFileNameInvalid
             ) {
-                Text(text = stringResource(id = R.string.create_new_file_confirm_button))
+                Text(text = stringResource(id = R.string.text_create))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(text = stringResource(id = R.string.create_new_file_cancel_button))
+                Text(text = stringResource(id = R.string.text_cancel))
             }
         },
         properties = DialogProperties(

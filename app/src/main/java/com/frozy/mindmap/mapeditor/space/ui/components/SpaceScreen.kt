@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -54,21 +55,21 @@ import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.BOUNDARY_ALPHA_AN
 import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.BOUNDARY_ARROW_SIZE
 import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.BOUNDARY_FADE_WIDTH
 import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.BOUNDARY_TOLERANCE
-import com.frozy.mindmap.mapeditor.space.models.HitAt
-import com.frozy.mindmap.mapeditor.space.models.MapItem
-import com.frozy.mindmap.mapeditor.space.models.MapItemObject
-import com.frozy.mindmap.mapeditor.space.models.SpaceCameraState
+import com.frozy.mindmap.mapeditor.space.input.HitAt
+import com.frozy.mindmap.mapeditor.models.MapItem
+import com.frozy.mindmap.mapeditor.models.MapItemObject
+import com.frozy.mindmap.mapeditor.space.camera.SpaceCameraState
 import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.DRAG_THRESHOLD
 import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.MAX_OVERSCROLL
 import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.MAX_WORLD_X
 import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.MIN_WORLD_X
-import com.frozy.mindmap.mapeditor.space.models.ArrowDragPreview
-import com.frozy.mindmap.mapeditor.space.ui.utils.buildNodeLayout
-import com.frozy.mindmap.mapeditor.space.ui.utils.categorizeHitAtType
-import com.frozy.mindmap.mapeditor.space.ui.utils.returnHitNodeOrNull
+import com.frozy.mindmap.mapeditor.space.nodelink.PendingNodeLink
+import com.frozy.mindmap.mapeditor.space.node.layout.buildNodeLayout
+import com.frozy.mindmap.mapeditor.space.input.categorizeHitAtType
+import com.frozy.mindmap.mapeditor.space.input.returnHitNodeOrNull
+import com.frozy.mindmap.mapeditor.space.input.returnHitNodeSideOrNull
 import com.frozy.mindmap.ui.components.BottomSheetItem
-import com.frozy.mindmap.ui.components.NodeTextEditDialog
-import com.frozy.mindmap.ui.components.nodecolorpicker.NodeColorPicker
+import com.frozy.mindmap.mapeditor.space.ui.components.nodecolorpicker.NodeColorPicker
 import com.frozy.mindmap.ui.utils.hideSystemStatusBar
 import com.frozy.mindmap.ui.utils.lighten
 import kotlinx.coroutines.launch
@@ -81,7 +82,6 @@ fun SpaceScreen(
     mevm: MapEditorViewModel,
     mapItemUUID: UUID,
     onAddNode: (Size, SpaceCameraState, Offset) -> Unit,
-    onNodeHit: (MapItemObject.SpaceNode, UUID) -> Unit,
     pagerState: PagerState,
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -105,7 +105,10 @@ fun SpaceScreen(
 
 
     var camera by remember { mutableStateOf(value = thisSpace.cameraState) }
-    var arrowDragPreview by remember { mutableStateOf<ArrowDragPreview?>(value = null) }
+    var pendingNodeLink by remember { mutableStateOf<PendingNodeLink?>(value = null) }
+
+    var selectedNodeLink by remember { mutableStateOf<MapItemObject.SpaceNodeLink?>(value = null) }
+    val deleteIconPainter = rememberVectorPainter(image = Icons.Default.Close)
 
     //build all layouts at the start of the frame
     //rememberUpdatedState is for updating the value of layouts that .pointerInput() receives
@@ -146,9 +149,10 @@ fun SpaceScreen(
     val nodeArrowRightPainter = rememberVectorPainter(image = Icons.AutoMirrored.Filled.KeyboardArrowRight)
 
     val dotColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.15f)
-    val edgeColor = MaterialTheme.colorScheme.onBackground
+    val nodeLinkColor = MaterialTheme.colorScheme.onBackground
     val arrowColor = MaterialTheme.colorScheme.onSurface
     val fallbackSelectedNodeBorderColor = MaterialTheme.colorScheme.tertiary
+    val errorColor = MaterialTheme.colorScheme.error
 
     val textMeasurer = rememberTextMeasurer()
 
@@ -264,17 +268,23 @@ fun SpaceScreen(
 
                     val hit = categorizeHitAtType(
                         layouts = layoutsState.value,
+                        nodeLinks = thisSpace.nodeLinkInfo,
+                        selectedNodeLink = selectedNodeLink,
                         pointerPos = firstDown.position
                     )
 
                     when (hit) {
                         is HitAt.HitNodeResizeHandle -> {
+                            selectedNodeLink = null
+
                             do {
                                 val event = awaitPointerEvent()
-                                val change = event.changes.firstOrNull { it.id == firstDown.id } ?: break
+                                val change =
+                                    event.changes.firstOrNull { it.id == firstDown.id } ?: break
                                 change.consume()
 
-                                val worldDelta = (change.position - firstDown.position) / camera.scale
+                                val worldDelta =
+                                    (change.position - firstDown.position) / camera.scale
 
                                 mevm.miplResizeSpaceNode(
                                     mapItemUUID = thisSpace.uuid,
@@ -289,29 +299,32 @@ fun SpaceScreen(
                         }
 
                         is HitAt.HitNodeBody -> {
+                            selectedNodeLink = null
+
                             val isAlreadySelected = hit.layout.node.isSelected
 
-                            if (isAlreadySelected) {
-                                editingNode = hit.layout.node
-                            } else {
+                            if (!isAlreadySelected) {
                                 mevm.miplSelectSpaceNode(
                                     mapItemUUID = thisSpace.uuid,
-                                    nodeUUID    = hit.layout.node.uuid
+                                    nodeUUID = hit.layout.node.uuid
                                 )
                             }
 
                             var didDrag = false
 
                             do {
-                                val event  = awaitPointerEvent()
-                                val change = event.changes.firstOrNull { it.id == firstDown.id } ?: break
+                                val event = awaitPointerEvent()
+                                val change =
+                                    event.changes.firstOrNull { it.id == firstDown.id } ?: break
                                 change.consume()
 
-                                val totalMoved = (change.position - firstDown.position).getDistance()
+                                val totalMoved =
+                                    (change.position - firstDown.position).getDistance()
                                 if (totalMoved > viewConfiguration.touchSlop) didDrag = true
 
                                 if (didDrag) {
-                                    val worldDelta = (change.position - change.previousPosition) / camera.scale
+                                    val worldDelta =
+                                        (change.position - change.previousPosition) / camera.scale
                                     mevm.miplMoveSpaceNode(
                                         mapItemUUID = thisSpace.uuid,
                                         nodeUUID = hit.layout.node.uuid,
@@ -321,44 +334,78 @@ fun SpaceScreen(
                             } while (event.changes.any { it.pressed })
 
                             //if the finger moved, it was a drag not a tap so don't open the editor
-                            if (didDrag) editingNode = null
+                            if (didDrag) {
+                                editingNode = null
+                            } else if(isAlreadySelected) {
+                                editingNode = hit.layout.node
+                            }
                         }
 
                         //hit on node arrow
                         is HitAt.HitNodeArrow -> {
+                            selectedNodeLink = null
                             var currentPointerPos = firstDown.position
 
                             do {
-                                val event  = awaitPointerEvent()
-                                val change = event.changes.firstOrNull { it.id == firstDown.id } ?: break
+                                val event = awaitPointerEvent()
+                                val change =
+                                    event.changes.firstOrNull { it.id == firstDown.id } ?: break
                                 change.consume()
                                 currentPointerPos = change.position
 
-                                arrowDragPreview = ArrowDragPreview(
+                                pendingNodeLink = PendingNodeLink(
                                     fromNodeUUID = hit.layout.node.uuid,
-                                    currentScreenPos = currentPointerPos
+                                    fromNodeSide = hit.sideType,
+                                    currentEndPos = currentPointerPos
                                 )
                             } while (event.changes.any { it.pressed })
 
-                            // check if released over a different node
                             val targetNode = returnHitNodeOrNull(
-                                layouts    = layoutsState.value,
+                                layouts = layoutsState.value,
                                 pointerPos = currentPointerPos
                             )
-                            if (targetNode != null && targetNode.uuid != hit.layout.node.uuid) {
-                                mevm.miplCreateEdge(
-                                    mapItemUUID  = thisSpace.uuid,
+
+                            val targetNodeSide = returnHitNodeSideOrNull(
+                                layouts = layoutsState.value,
+                                pointerPos = currentPointerPos
+                            )
+
+                            if (
+                                targetNode != null &&
+                                targetNodeSide != null &&
+                                targetNode.uuid != hit.layout.node.uuid
+                            ) {
+                                mevm.miplCreateNodeLink(
+                                    mapItemUUID = thisSpace.uuid,
                                     fromNodeUUID = hit.layout.node.uuid,
-                                    toNodeUUID   = targetNode.uuid
+                                    fromNodeSide = hit.sideType,
+                                    toNodeUUID = targetNode.uuid,
+                                    toNodeSide = targetNodeSide,
                                 )
                             }
 
-                            arrowDragPreview = null
+                            pendingNodeLink = null
+                        }
+
+                        is HitAt.HitNodeLink -> {
+                            selectedNodeLink = hit.link
+                            mevm.miplDeselectAllSpaceNodes(
+                                mapItemUUID = thisSpace.uuid
+                            )
+                        }
+
+                        is HitAt.HitNodeLinkDeleteButton -> {
+                            mevm.miplRemoveNodeLink(
+                                mapItemUUID  = thisSpace.uuid,
+                                linkUUID = hit.link.uuid
+                            )
+                            selectedNodeLink = null
                         }
 
                         //hit on canvas
                         is HitAt.HitCanvas -> {
                             mevm.miplDeselectAllSpaceNodes(mapItemUUID = thisSpace.uuid)
+                            selectedNodeLink = null
 
                             var prevPositions = mapOf(firstDown.id to firstDown.position)
 
@@ -403,7 +450,7 @@ fun SpaceScreen(
                                     )
                                     activePointers.forEach { it.consume() }
 
-                                //pan to move around
+                                    //pan to move around
                                 } else if (activePointers.size == 1) {
                                     val change = activePointers[0]
 
@@ -479,23 +526,33 @@ fun SpaceScreen(
                 )
             }
 
-            drawEdges(
-                edges = thisSpace.edges,
+            drawAllNodeLinks(
+                links = thisSpace.nodeLinkInfo,
                 layouts = layouts,
-                edgeColor = edgeColor
+                selectedLink = selectedNodeLink,
+                color = nodeLinkColor
             )
 
-            arrowDragPreview?.let { preview ->
-                drawArrowDragPreview(
-                    preview = preview,
+            selectedNodeLink?.let { link ->
+                drawSelectedNodeLinkDeleteButton(
+                    link = link,
                     layouts = layouts,
-                    edgeColor = edgeColor
+                    painter = deleteIconPainter,
+                    tintColor = errorColor
+                )
+            }
+
+            pendingNodeLink?.let { preview ->
+                drawPendingNodeLink(
+                    pendingNodeLink = preview,
+                    layouts = layouts,
+                    arrowColor = nodeLinkColor
                 )
             }
             
             if (leftBoundaryAlpha > 0f) {
                 drawLeftBoundaryFade(
-                    color = edgeColor,
+                    color = nodeLinkColor,
                     width = fadeWidthPx,
                     alpha = leftBoundaryAlpha,
                     overscroll = currentOverscrollValue
@@ -519,7 +576,7 @@ fun SpaceScreen(
 
             if (rightBoundaryAlpha > 0f) {
                 drawRightBoundaryFade(
-                    color = edgeColor,
+                    color = nodeLinkColor,
                     width = fadeWidthPx,
                     alpha = rightBoundaryAlpha,
                     overscroll = currentOverscrollValue,
@@ -633,11 +690,15 @@ fun SpaceScreen(
     editingNode?.let { node ->
         NodeTextEditDialog(
             initialText = node.text,
-            onConfirm = { newText ->
+            initialFontSize = node.fontSize,
+            onConfirm = { newText, newFontSize ->
                 mevm.miplChangeSpaceNode(
                     mapItemUUID = thisSpace.uuid,
-                    nodeUUID    = node.uuid,
-                    newNode     = node.copy(text = newText)
+                    nodeUUID = node.uuid,
+                    newNode = node.copy(
+                        text = newText,
+                        fontSize = newFontSize
+                    ),
                 )
                 editingNode = null
             },
@@ -701,7 +762,7 @@ fun SpaceScreen(
                         if(allSelectedNodeUUIDs.isEmpty()){
                             return@BottomSheetItem
                         }
-                        mevm.miplRemoveSpaceNodesFromSpace(
+                        mevm.miplRemoveSpaceNodes(
                             mapItemUUID = thisSpace.uuid,
                             *allSelectedNodeUUIDs.toTypedArray()
                         )

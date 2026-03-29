@@ -10,4 +10,5 @@ object FeatureVersions {
     const val NOTE_DATA_VERSION = 1
     const val IMAGE_DATA_VERSION = 1
     const val SPACE_CAMERA_VERSION = 1
+    const val NODE_LINK_DATA_VERSION = 1
 }

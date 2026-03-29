@@ -1,19 +1,20 @@
 package com.frozy.mindmap.storage.utils
 
-import android.net.Uri
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
-import com.frozy.mindmap.mapeditor.space.models.MapItem
-import com.frozy.mindmap.mapeditor.space.models.MapItemObject
-import com.frozy.mindmap.mapeditor.space.models.SpaceCameraState
+import com.frozy.mindmap.mapeditor.models.MapItem
+import com.frozy.mindmap.mapeditor.models.MapItemObject
+import com.frozy.mindmap.mapeditor.space.camera.SpaceCameraState
 import com.frozy.mindmap.storage.models.serializables.ImageSerializable
 import com.frozy.mindmap.storage.models.serializables.NoteSerializable
 import com.frozy.mindmap.storage.models.serializables.SpaceCameraStateSerializable
 import com.frozy.mindmap.storage.models.serializables.SpaceSerializable
 import com.frozy.mindmap.storage.models.serializables.SpaceNodeSerializable
 import java.util.UUID
-
+import androidx.core.net.toUri
+import com.frozy.mindmap.mapeditor.space.node.side.NodeSideType
+import com.frozy.mindmap.storage.models.serializables.NodeLinkSerializable
 
 
 /*
@@ -35,6 +36,33 @@ fun NoteSerializable.toDeserialized(): MapItem.Note {
         contentText = this.contentText
     )
 }
+
+
+
+/*
+    SpaceNodeLink and NodeLinkSerializable ----------------------------------------------
+*/
+
+fun MapItemObject.SpaceNodeLink.toSerializable(): NodeLinkSerializable {
+    return NodeLinkSerializable(
+        uuid = this.uuid.toString(),
+        fromNodeUUID = this.fromNodeUUID.toString(),
+        fromNodeSide = this.fromNodeSide.name,
+        toNodeUUID = this.toNodeUUID.toString(),
+        toNodeSide = this.toNodeSide.name
+    )
+}
+
+fun NodeLinkSerializable.toDeserialized(): MapItemObject.SpaceNodeLink {
+    return MapItemObject.SpaceNodeLink(
+        uuid = UUID.fromString(this.uuid),
+        fromNodeUUID = UUID.fromString(this.fromNodeUUID),
+        fromNodeSide = NodeSideType.valueOf(this.fromNodeSide),
+        toNodeUUID = UUID.fromString(this.toNodeUUID),
+        toNodeSide = NodeSideType.valueOf(this.toNodeSide)
+    )
+}
+
 
 
 
@@ -118,7 +146,7 @@ fun ImageSerializable.toDeserialized(): MapItemObject.Image {
         offset = Offset(x = this.x, y = this.y),
         width = this.width,
         height = this.height,
-        imageUri = Uri.parse(this.uri)
+        imageUri = this.uri.toUri()
     )
 }
 
@@ -137,7 +165,10 @@ fun MapItem.Space.toSerializable(): SpaceSerializable {
         serializedImageData = this.imageInfo.map { image ->
             image.toSerializable()
         },
-        serializedSpaceCameraState = this.cameraState.toSerializable()
+        serializedSpaceCameraState = this.cameraState.toSerializable(),
+        serializedNodeLinkData = this.nodeLinkInfo.map { link ->
+            link.toSerializable()
+        }
     )
 }
 
@@ -150,6 +181,9 @@ fun SpaceSerializable.toDeserialized(): MapItem.Space {
         imageInfo = this.serializedImageData.map { image ->
             image.toDeserialized()
         },
-        cameraState = this.serializedSpaceCameraState.toDeserialized()
+        cameraState = this.serializedSpaceCameraState.toDeserialized(),
+        nodeLinkInfo = this.serializedNodeLinkData.map { linkSerializable ->
+            linkSerializable.toDeserialized()
+        }
     )
 }

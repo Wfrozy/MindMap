@@ -1,4 +1,4 @@
-package com.frozy.mindmap.ui.components.nodecolorpicker
+package com.frozy.mindmap.mapeditor.space.ui.components.nodecolorpicker
 
 import androidx.compose.ui.graphics.Color
 

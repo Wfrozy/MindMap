@@ -14,7 +14,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
-import com.frozy.mindmap.mapeditor.space.models.SpaceCameraState
+import com.frozy.mindmap.mapeditor.space.camera.SpaceCameraState
 import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.MAX_WORLD_X
 import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.MIN_WORLD_X
 

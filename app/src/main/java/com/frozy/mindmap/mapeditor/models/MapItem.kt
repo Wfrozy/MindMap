@@ -1,8 +1,11 @@
-package com.frozy.mindmap.mapeditor.space.models
+package com.frozy.mindmap.mapeditor.models
 
+import com.frozy.mindmap.mapeditor.space.camera.SpaceCameraState
 import java.util.UUID
 
-sealed class MapItem(open val uuid: UUID) {
+sealed class MapItem(
+    open val uuid: UUID
+) {
     data class Note(
         override val uuid: UUID = UUID.randomUUID(),
         val titleText: String = "",
@@ -14,6 +17,6 @@ sealed class MapItem(open val uuid: UUID) {
         val cameraState: SpaceCameraState = SpaceCameraState(),
         val spaceNodeInfo: List<MapItemObject.SpaceNode> = emptyList(),
         val imageInfo: List<MapItemObject.Image> = emptyList(),
-        val edges: List<MapItemObject.SpaceNodeConnection> = emptyList()
+        val nodeLinkInfo: List<MapItemObject.SpaceNodeLink> = emptyList()
     ) : MapItem(uuid)
 }

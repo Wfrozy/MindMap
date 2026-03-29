@@ -1,7 +1,10 @@
-package com.frozy.mindmap.mapeditor.space.models
+package com.frozy.mindmap.mapeditor.space.node.layout
 
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Rect
+import com.frozy.mindmap.mapeditor.models.MapItemObject
+import com.frozy.mindmap.mapeditor.space.node.arrowhandle.NodeArrowHandles
+import com.frozy.mindmap.mapeditor.space.node.resizehandle.NodeResizeHandles
 
 /**
  * NodeLayout is a class that caches geometry calculations.

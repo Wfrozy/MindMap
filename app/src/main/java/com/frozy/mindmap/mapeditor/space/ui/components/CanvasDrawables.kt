@@ -20,13 +20,20 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
-import com.frozy.mindmap.mapeditor.space.constants.NodeArrowHandleValues
-import com.frozy.mindmap.mapeditor.space.models.NodeLayout
+import com.frozy.mindmap.mapeditor.space.node.arrowhandle.NodeArrowHandleValues
+import com.frozy.mindmap.mapeditor.space.node.layout.NodeLayout
 import com.frozy.mindmap.mapeditor.space.constants.models.NodeResizeHandleValues.NODE_RESIZE_HANDLE_HEIGHT
 import com.frozy.mindmap.mapeditor.space.constants.models.NodeResizeHandleValues.NODE_RESIZE_HANDLE_WIDTH
-import com.frozy.mindmap.mapeditor.space.models.ArrowDragPreview
-import com.frozy.mindmap.mapeditor.space.models.MapItemObject
-import com.frozy.mindmap.mapeditor.space.models.SpaceCameraState
+import com.frozy.mindmap.mapeditor.space.nodelink.PendingNodeLink
+import com.frozy.mindmap.mapeditor.models.MapItemObject
+import com.frozy.mindmap.mapeditor.space.camera.SpaceCameraState
+import com.frozy.mindmap.mapeditor.space.input.nodeLinkMidpoint
+import com.frozy.mindmap.mapeditor.space.input.nodeSidePosition
+import com.frozy.mindmap.mapeditor.space.node.side.NodeSideType
+import com.frozy.mindmap.mapeditor.space.nodelink.NodeLinkValues.NODE_LINK_DELETE_BUTTON_RADIUS
+import com.frozy.mindmap.mapeditor.space.nodelink.NodeLinkValues.NODE_LINK_HEAD_ANGLE
+import com.frozy.mindmap.mapeditor.space.nodelink.NodeLinkValues.NODE_LINK_HEAD_LINES_LENGTH
+import com.frozy.mindmap.mapeditor.space.nodelink.NodeLinkValues.NODE_LINK_THICKNESS
 import com.frozy.mindmap.ui.utils.strengthen
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -365,73 +372,63 @@ fun DrawScope.drawNode(
     }
 }
 
-fun DrawScope.drawEdges(
-    edges: List<MapItemObject.SpaceNodeConnection>,
+fun DrawScope.drawAllNodeLinks(
+    links: List<MapItemObject.SpaceNodeLink>,
     layouts: List<NodeLayout>,
-    edgeColor: Color
+    color: Color,
+    selectedLink: MapItemObject.SpaceNodeLink?
 ) {
     val layoutMap = layouts.associateBy { it.node.uuid }
-    val strokeWidth = 2.dp.toPx()
-    val arrowLength = 12.dp.toPx()
+    val strokeWidth = NODE_LINK_THICKNESS.dp.toPx()
+    val headLinesLength = NODE_LINK_HEAD_LINES_LENGTH.dp.toPx()
 
-    edges.forEach { edge ->
-        val fromLayout = layoutMap[edge.fromNodeUUID] ?: return@forEach
-        val toLayout = layoutMap[edge.toNodeUUID] ?: return@forEach
+    links.forEach { link ->
+        val fromLayout = layoutMap[link.fromNodeUUID] ?: return@forEach
+        val toLayout = layoutMap[link.toNodeUUID] ?: return@forEach
 
-        val fromCenter = fromLayout.nodeHitbox.center
-        val toCenter = toLayout.nodeHitbox.center
+        val start = nodeSidePosition(nodeSide = link.fromNodeSide, nodeHitbox = fromLayout.nodeHitbox)
+        val end = nodeSidePosition(nodeSide = link.toNodeSide, nodeHitbox = toLayout.nodeHitbox)
+
+        val linkColor = if(selectedLink != null && link.uuid == selectedLink.uuid) {
+            color.strengthen()
+        } else {
+            color
+        }
 
         drawLine(
-            color = edgeColor,
-            start = fromCenter,
-            end = toCenter,
-            strokeWidth = 2.dp.toPx()
+            color = linkColor,
+            start = start,
+            end = end,
+            strokeWidth = strokeWidth
         )
 
-        // normalized direction vector pointing toward the tip (end)
-        val raw       = toCenter - fromCenter
-        val length    = raw.getDistance()
+        val raw = end - start
+        val length = raw.getDistance()
         if (length == 0f) return@forEach
         val direction = raw / length
 
-        drawArrowhead(
-            tip         = toCenter,
-            direction   = direction,
-            arrowLength = arrowLength,
-            color       = edgeColor,
+        drawLinkArrowHead(
+            tipPos = end,
+            direction = direction,
+            linesLength = headLinesLength,
+            color = linkColor,
             strokeWidth = strokeWidth
         )
     }
 }
 
-fun DrawScope.drawArrowDragPreview(
-    preview: ArrowDragPreview,
-    layouts: List<NodeLayout>,
-    edgeColor: Color
-) {
-    val fromLayout = layouts.firstOrNull { it.node.uuid == preview.fromNodeUUID } ?: return
-
-    drawLine(
-        color = edgeColor.copy(alpha = 0.5f),
-        start = fromLayout.nodeHitbox.center,
-        end = preview.currentScreenPos,
-        strokeWidth = 2.dp.toPx(),
-    )
-}
-
-private fun DrawScope.drawArrowhead(
-    tip: Offset,
-    direction: Offset, // normalized direction vector pointing TOWARD the tip
-    arrowLength: Float,
-    arrowAngle: Float = 30f,
+private fun DrawScope.drawLinkArrowHead(
+    tipPos: Offset,
+    direction: Offset, //normalized direction vector pointing toward the tip
+    linesLength: Float,
     color: Color,
     strokeWidth: Float
 ) {
-    val angleRad = Math.toRadians(arrowAngle.toDouble()).toFloat()
+    val angleRad = Math.toRadians(NODE_LINK_HEAD_ANGLE.toDouble()).toFloat()
 
     // rotate the direction vector left and right to get the two arrowhead lines
-    val cos = kotlin.math.cos(angleRad)
-    val sin = kotlin.math.sin(angleRad)
+    val cos = kotlin.math.cos(x = angleRad)
+    val sin = kotlin.math.sin(x = angleRad)
 
     val leftWing = Offset(
         x = direction.x * cos - direction.y * sin,
@@ -443,15 +440,87 @@ private fun DrawScope.drawArrowhead(
     )
 
     drawLine(
-        color       = color,
-        start       = tip,
-        end         = tip - leftWing * arrowLength,
+        color = color,
+        start = tipPos,
+        end = tipPos - leftWing * linesLength,
         strokeWidth = strokeWidth
     )
     drawLine(
-        color       = color,
-        start       = tip,
-        end         = tip - rightWing * arrowLength,
+        color = color,
+        start = tipPos,
+        end = tipPos - rightWing * linesLength,
         strokeWidth = strokeWidth
     )
+}
+
+fun DrawScope.drawPendingNodeLink(
+    pendingNodeLink: PendingNodeLink,
+    layouts: List<NodeLayout>,
+    arrowColor: Color
+) {
+    val fromLayout = layouts.firstOrNull { it.node.uuid == pendingNodeLink.fromNodeUUID } ?: return
+
+    val start = when (pendingNodeLink.fromNodeSide) {
+        NodeSideType.TOP -> Offset(
+            x = fromLayout.nodeHitbox.center.x,
+            y = fromLayout.nodeHitbox.top,
+        )
+
+        NodeSideType.BOTTOM -> Offset(
+            x = fromLayout.nodeHitbox.center.x,
+            y = fromLayout.nodeHitbox.bottom
+        )
+
+        NodeSideType.LEFT -> Offset(
+            x = fromLayout.nodeHitbox.left,
+            y = fromLayout.nodeHitbox.center.y
+        )
+
+        NodeSideType.RIGHT -> Offset(
+            x = fromLayout.nodeHitbox.right,
+            y = fromLayout.nodeHitbox.center.y
+        )
+    }
+
+    drawLine(
+        color = arrowColor.copy(alpha = 0.5f),
+        start = start,
+        end = pendingNodeLink.currentEndPos,
+        strokeWidth = NODE_LINK_THICKNESS.dp.toPx(),
+    )
+}
+
+fun DrawScope.drawSelectedNodeLinkDeleteButton(
+    link: MapItemObject.SpaceNodeLink,
+    layouts: List<NodeLayout>,
+    painter: VectorPainter,
+    tintColor: Color
+) {
+    val radius = NODE_LINK_DELETE_BUTTON_RADIUS.dp.toPx()
+
+    val midpoint = nodeLinkMidpoint(
+        link = link,
+        layouts = layouts
+    ) ?: return
+
+    drawCircle(
+        color = tintColor,
+        radius = radius,
+        center = midpoint
+    )
+    withTransform(
+        transformBlock = {
+            translate(
+                left = midpoint.x - radius,
+                top = midpoint.y - radius
+            )
+        }
+    ) {
+        with(painter) {
+            draw(
+                size = Size(radius * 2f, radius * 2f),
+                colorFilter = ColorFilter.tint(Color.White)
+            )
+        }
+    }
 }

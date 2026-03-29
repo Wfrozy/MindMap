@@ -21,12 +21,12 @@ fun ExtraConfirmationDialog(
             TextButton(
                 onClick = onConfirm,
             ) {
-                Text(text = stringResource(id = R.string.edit_map_dialog_delete_button))
+                Text(text = stringResource(id = R.string.text_delete))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(text = stringResource(id = R.string.create_new_file_cancel_button))
+                Text(text = stringResource(id = R.string.text_cancel))
             }
         },
     )

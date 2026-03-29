@@ -28,6 +28,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowCircleLeft
 import androidx.compose.material.icons.filled.Cable
 import androidx.compose.material.icons.filled.Construction
@@ -70,10 +71,10 @@ import androidx.compose.ui.unit.dp
 import com.frozy.mindmap.R
 import com.frozy.mindmap.constants.FileExtension.APP_FILE_EXTENSION
 import com.frozy.mindmap.mapeditor.note.ui.NoteScreen
-import com.frozy.mindmap.mapeditor.space.constants.DefaultNodeValues.DEFAULT_NODE_HEIGHT
-import com.frozy.mindmap.mapeditor.space.constants.DefaultNodeValues.DEFAULT_NODE_WIDTH
-import com.frozy.mindmap.mapeditor.space.models.MapItem
-import com.frozy.mindmap.mapeditor.space.models.MapItemObject
+import com.frozy.mindmap.mapeditor.space.node.constants.NodeValues.DEFAULT_NODE_HEIGHT
+import com.frozy.mindmap.mapeditor.space.node.constants.NodeValues.DEFAULT_NODE_WIDTH
+import com.frozy.mindmap.mapeditor.models.MapItem
+import com.frozy.mindmap.mapeditor.models.MapItemObject
 import com.frozy.mindmap.mapeditor.space.ui.components.SpaceScreen
 import com.frozy.mindmap.ui.components.BottomSheetItem
 import com.frozy.mindmap.ui.theme.MindMapTheme
@@ -279,7 +280,7 @@ fun MapEditorUI(
                             }
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Cable,
+                                imageVector = Icons.Default.Construction,
                                 contentDescription = stringResource(id = R.string.contentDescription_add_new_content_in_map_editor)
                             )
                         }
@@ -293,7 +294,7 @@ fun MapEditorUI(
                     }
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Construction,
+                        imageVector = Icons.Default.Add,
                         contentDescription = stringResource(id = R.string.contentDescription_add_new_content_in_map_editor)
                     )
                 }
@@ -359,12 +360,6 @@ fun MapEditorUI(
                                                     node = defaultNode
                                                 )
                                             },
-                                            onNodeHit = { _, nodeUUID ->
-                                                mevm.miplSelectSpaceNode(
-                                                    mapItemUUID = currentPage.uuid,
-                                                    nodeUUID = nodeUUID,
-                                                )
-                                            }
                                         )
                                     }
                                 }

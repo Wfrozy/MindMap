@@ -48,7 +48,7 @@ class SettingsActivity : ComponentActivity() {
                             },
                             title = {
                                 Text(
-                                    text = stringResource(id = R.string.settings_title)
+                                    text = stringResource(id = R.string.text_settings)
                                 )
                             }
                         )

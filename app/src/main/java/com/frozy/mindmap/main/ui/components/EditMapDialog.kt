@@ -1,4 +1,4 @@
-package com.frozy.mindmap.ui.components
+package com.frozy.mindmap.main.ui.components
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -57,18 +57,18 @@ fun EditMapDialog(
                 onClick = { onConfirm(entry) },
                 enabled = !isFileNameInvalid && originalMapName != entry.name
             ) {
-                Text(text = stringResource(R.string.edit_map_dialog_confirm_button))
+                Text(text = stringResource(R.string.text_confirm))
             }
         },
         dismissButton = {
             TextButton(onClick = onDelete) {
                 Text(
-                    text = stringResource(R.string.edit_map_dialog_delete_button),
+                    text = stringResource(R.string.text_delete),
                     color = MaterialTheme.colorScheme.error
                 )
             }
             TextButton(onClick = onDismiss) {
-                Text(text = stringResource(id = R.string.create_new_file_cancel_button))
+                Text(text = stringResource(id = R.string.text_cancel))
             }
         },
         properties = DialogProperties(

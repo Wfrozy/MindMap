@@ -1,4 +1,4 @@
-package com.frozy.mindmap.mapeditor.space.constants
+package com.frozy.mindmap.mapeditor.space.node.arrowhandle
 
 object NodeArrowHandleValues {
     const val ARROW_HANDLE_WIDTH_AND_HEIGHT = 44f

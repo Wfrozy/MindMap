@@ -3,7 +3,7 @@ package com.frozy.mindmap.storage.utils
 import com.frozy.mindmap.constants.FileExtension.APP_FILE_EXTENSION
 import com.frozy.mindmap.main.models.MainActivityValues.MAX_MAP_NAME_LENGTH
 
-//ensure filename ends with the correct extension and does not contain invalid chars in the file name
+//ensure filename ends with the correct extension and does not contain invalid chars
 fun String.sanitizeAndEnsureExtension(): String {
     val trimmed = this.trim().ifBlank { "NewMap$APP_FILE_EXTENSION" }
 

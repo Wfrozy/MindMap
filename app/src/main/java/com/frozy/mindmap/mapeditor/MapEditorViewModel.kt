@@ -5,10 +5,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.frozy.mindmap.MindMapApplication
-import com.frozy.mindmap.mapeditor.space.models.MapItem
-import com.frozy.mindmap.mapeditor.space.models.MapItemObject
-import com.frozy.mindmap.mapeditor.space.models.ResizeHandleType
-import com.frozy.mindmap.mapeditor.space.models.SpaceCameraState
+import com.frozy.mindmap.mapeditor.models.MapItem
+import com.frozy.mindmap.mapeditor.models.MapItemObject
+import com.frozy.mindmap.mapeditor.space.node.resizehandle.NodeResizeHandleType
+import com.frozy.mindmap.mapeditor.space.camera.SpaceCameraState
+import com.frozy.mindmap.mapeditor.space.node.constants.NodeValues.MIN_NODE_HEIGHT
+import com.frozy.mindmap.mapeditor.space.node.constants.NodeValues.MIN_NODE_WIDTH
+import com.frozy.mindmap.mapeditor.space.node.side.NodeSideType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,6 +22,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
+
+//todo fix IndexOutOfBoundsCrash when a map item is deleted
+//todo fix crash when you delete the last map item
 
 class MapEditorViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -31,7 +37,6 @@ class MapEditorViewModel(application: Application) : AndroidViewModel(applicatio
     private val _isEditorModeEnabled = MutableStateFlow(value = false)
     val isEditorModeEnabled: StateFlow<Boolean> = _isEditorModeEnabled.asStateFlow()
     fun changeEditorModeState(value: Boolean) { _isEditorModeEnabled.update { value } }
-
 
     private val _mapItemPagerList = MutableStateFlow(value = emptyList<MapItem>())
     val mapItemPagerList: StateFlow<List<MapItem>> = _mapItemPagerList.asStateFlow()
@@ -46,9 +51,26 @@ class MapEditorViewModel(application: Application) : AndroidViewModel(applicatio
         .distinctUntilChanged()
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(),
+            started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
+
+//    val allOccupiedNodeSides: StateFlow<Map<UUID, Set<NodeSideType>>> =
+//        mapItemPagerList.map { mipl ->
+//            mipl
+//                .filterIsInstance<MapItem.Space>()
+//                .flatMap { space -> space.nodeLinks }
+//                .groupBy { nodeLink -> nodeLink.toNodeUUID }
+//                .mapValues { (_, links) ->
+//                    links.map { it.toNodeSide }.toSet()
+//                }
+//        }
+//        .distinctUntilChanged()
+//        .stateIn(
+//            scope = viewModelScope,
+//            started = SharingStarted.WhileSubscribed(5000),
+//            initialValue = emptyMap()
+//        )
 
     //these control the visibility of some ModalBottomSheets: these Are in the VM because they are used across different
     // files and it is most convenient to do it like this
@@ -60,11 +82,37 @@ class MapEditorViewModel(application: Application) : AndroidViewModel(applicatio
     val isNodeEditorSheetVisible = _isNodeEditorSheetVisible.asStateFlow()
     fun changeNodeEditorSheetVisibility(value: Boolean) { _isNodeEditorSheetVisible.update { value }}
 
+
+
     private val _initialPageIndex = MutableStateFlow(value = 0)
     val initialPageIndex: StateFlow<Int> = _initialPageIndex.asStateFlow()
 
     private val _isMapLoadingFinished = MutableStateFlow(value = false)
     val isMapLoadingFinished: StateFlow<Boolean> = _isMapLoadingFinished.asStateFlow()
+
+    fun occupiedSidesForNode(
+        mapItemUUID: UUID,
+        nodeUUID: UUID
+    ): StateFlow<Set<NodeSideType>> {
+        return mapItemPagerList
+            .map { mipl ->
+                val space = mipl
+                    .filterIsInstance<MapItem.Space>()
+                    .firstOrNull { it.uuid == mapItemUUID }
+                    ?: return@map emptySet()
+
+                space.nodeLinkInfo
+                    .filter { it.toNodeUUID == nodeUUID }
+                    .map { it.toNodeSide }
+                    .toSet()
+            }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(),
+                initialValue = emptySet()
+            )
+    }
+
 
     fun miplAddMapItem(mapItem: MapItem){
         _mapItemPagerList.update { list ->
@@ -158,7 +206,7 @@ class MapEditorViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun miplRemoveSpaceNodesFromSpace(
+    fun miplRemoveSpaceNodes(
         mapItemUUID: UUID,
         vararg nodeUUIDs: UUID
     ) {
@@ -168,6 +216,10 @@ class MapEditorViewModel(application: Application) : AndroidViewModel(applicatio
                     return@map mapItem.copy(
                         spaceNodeInfo = mapItem.spaceNodeInfo.filterNot {
                             it.uuid in nodeUUIDs
+                        },
+                        nodeLinkInfo = mapItem.nodeLinkInfo.filterNot { link ->
+                            link.toNodeUUID in nodeUUIDs ||
+                            link.fromNodeUUID in nodeUUIDs
                         }
                     )
                 } else {
@@ -203,14 +255,14 @@ class MapEditorViewModel(application: Application) : AndroidViewModel(applicatio
     fun miplResizeSpaceNode(
         mapItemUUID: UUID,
         nodeUUID: UUID,
-        handleType: ResizeHandleType,
+        handleType: NodeResizeHandleType,
         worldDragDelta: Offset,
         startNodeWidth: Float,
         startNodeHeight: Float,
         startNodeOffset: Offset
     ) {
-        val minWidth = 100f
-        val minHeight = 60f
+        val minWidth = MIN_NODE_WIDTH
+        val minHeight = MIN_NODE_HEIGHT
 
         _mapItemPagerList.update { mipl ->
             mipl.map { mapItem ->
@@ -226,25 +278,25 @@ class MapEditorViewModel(application: Application) : AndroidViewModel(applicatio
 
                         //different calculations for different handleTypes
                         when (handleType) {
-                            ResizeHandleType.TOP_LEFT -> {
+                            NodeResizeHandleType.TOP_LEFT -> {
                                 newWidth  = (startNodeWidth  - worldDragDelta.x).coerceAtLeast(minWidth)
                                 newHeight = (startNodeHeight - worldDragDelta.y).coerceAtLeast(minHeight)
                                 newOffsetX = startNodeOffset.x + startNodeWidth  - newWidth
                                 newOffsetY = startNodeOffset.y + startNodeHeight - newHeight
                             }
-                            ResizeHandleType.TOP_RIGHT -> {
+                            NodeResizeHandleType.TOP_RIGHT -> {
                                 newWidth  = (startNodeWidth  + worldDragDelta.x).coerceAtLeast(minWidth)
                                 newHeight = (startNodeHeight - worldDragDelta.y).coerceAtLeast(minHeight)
                                 newOffsetX = startNodeOffset.x
                                 newOffsetY = startNodeOffset.y + startNodeHeight - newHeight
                             }
-                            ResizeHandleType.BOTTOM_LEFT -> {
+                            NodeResizeHandleType.BOTTOM_LEFT -> {
                                 newWidth  = (startNodeWidth  - worldDragDelta.x).coerceAtLeast(minWidth)
                                 newHeight = (startNodeHeight + worldDragDelta.y).coerceAtLeast(minHeight)
                                 newOffsetX = startNodeOffset.x + startNodeWidth - newWidth
                                 newOffsetY = startNodeOffset.y
                             }
-                            ResizeHandleType.BOTTOM_RIGHT -> {
+                            NodeResizeHandleType.BOTTOM_RIGHT -> {
                                 newWidth  = (startNodeWidth  + worldDragDelta.x).coerceAtLeast(minWidth)
                                 newHeight = (startNodeHeight + worldDragDelta.y).coerceAtLeast(minHeight)
                                 newOffsetX = startNodeOffset.x
@@ -263,53 +315,56 @@ class MapEditorViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun updateArrowDragPreview(
-        fromNodeUUID: UUID,
-        screenPos: Offset,
-        camera: SpaceCameraState
-    ) {
-    }
-
-    fun miplCreateEdge(
+    fun miplCreateNodeLink(
         mapItemUUID: UUID,
         fromNodeUUID: UUID,
-        toNodeUUID: UUID
+        fromNodeSide: NodeSideType,
+        toNodeUUID: UUID,
+        toNodeSide: NodeSideType
     ) {
         _mapItemPagerList.update { mipl ->
             mipl.map { mapItem ->
+                //cannot be the same to avoid creating weird looking links
+                if(fromNodeSide == toNodeSide) return@map mapItem
+
                 if (mapItem.uuid != mapItemUUID || mapItem !is MapItem.Space) return@map mapItem
 
-                // avoid duplicate edges between the same two nodes
-                val alreadyExists = mapItem.edges.any { edge ->
-                    (edge.fromNodeUUID == fromNodeUUID && edge.toNodeUUID == toNodeUUID) ||
-                            (edge.fromNodeUUID == toNodeUUID && edge.toNodeUUID == fromNodeUUID)
+                val alreadyExists = mapItem.nodeLinkInfo.any { link ->
+                    link.fromNodeSide == fromNodeSide &&
+                    link.toNodeSide == toNodeSide
                 }
                 if (alreadyExists) return@map mapItem
 
-                mapItem.copy(edges = mapItem.edges + MapItemObject.SpaceNodeConnection(
-                    fromNodeUUID = fromNodeUUID,
-                    toNodeUUID = toNodeUUID
-                )
+                mapItem.copy(
+                    nodeLinkInfo = mapItem.nodeLinkInfo + MapItemObject.SpaceNodeLink(
+                        fromNodeUUID = fromNodeUUID,
+                        fromNodeSide = fromNodeSide,
+                        toNodeUUID = toNodeUUID,
+                        toNodeSide = toNodeSide
+                    )
                 )
             }
         }
     }
 
-    fun miplRemoveEdge(
+    fun miplRemoveNodeLink(
         mapItemUUID: UUID,
-        edgeUUID: UUID
+        linkUUID: UUID
     ) {
         _mapItemPagerList.update { mipl ->
             mipl.map { mapItem ->
                 if (mapItem.uuid != mapItemUUID || mapItem !is MapItem.Space) return@map mapItem
-                mapItem.copy(edges = mapItem.edges.filterNot { it.uuid == edgeUUID })
+                mapItem.copy(
+                    nodeLinkInfo = mapItem.nodeLinkInfo.filterNot { it.uuid == linkUUID }
+                )
             }
         }
     }
 
-    fun clearArrowDragPreview(){}
-
-    fun miplUpdateSpaceCamera(mapItemUUID: UUID, camera: SpaceCameraState) {
+    fun miplUpdateSpaceCamera(
+        mapItemUUID: UUID,
+        camera: SpaceCameraState
+    ) {
         _mapItemPagerList.update { list ->
             list.map { mapItem ->
                 if (mapItem is MapItem.Space && mapItem.uuid == mapItemUUID) {
