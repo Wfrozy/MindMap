@@ -156,12 +156,12 @@ fun CreateNewFileDialog(
                 onClick = onConfirm,
                 enabled = !isFileNameInvalid
             ) {
-                Text(text = stringResource(id = R.string.text_create))
+                Text(text = stringResource(id = R.string.word_create))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(text = stringResource(id = R.string.text_cancel))
+                Text(text = stringResource(id = R.string.word_cancel))
             }
         },
         properties = DialogProperties(

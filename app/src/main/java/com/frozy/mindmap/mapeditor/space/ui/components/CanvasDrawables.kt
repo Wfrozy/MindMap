@@ -8,6 +8,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -19,21 +20,23 @@ import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import com.frozy.mindmap.mapeditor.space.node.arrowhandle.NodeArrowHandleValues
-import com.frozy.mindmap.mapeditor.space.node.layout.NodeLayout
+import com.frozy.mindmap.mapeditor.space.camera.SpaceCameraState
 import com.frozy.mindmap.mapeditor.space.constants.models.NodeResizeHandleValues.NODE_RESIZE_HANDLE_HEIGHT
 import com.frozy.mindmap.mapeditor.space.constants.models.NodeResizeHandleValues.NODE_RESIZE_HANDLE_WIDTH
-import com.frozy.mindmap.mapeditor.space.nodelink.PendingNodeLink
-import com.frozy.mindmap.mapeditor.models.MapItemObject
-import com.frozy.mindmap.mapeditor.space.camera.SpaceCameraState
 import com.frozy.mindmap.mapeditor.space.input.nodeLinkMidpoint
 import com.frozy.mindmap.mapeditor.space.input.nodeSidePosition
+import com.frozy.mindmap.mapeditor.space.models.SpaceObject
+import com.frozy.mindmap.mapeditor.space.node.arrowhandle.NodeArrowHandleValues
+import com.frozy.mindmap.mapeditor.space.node.layout.NodeLayout
 import com.frozy.mindmap.mapeditor.space.node.side.NodeSideType
 import com.frozy.mindmap.mapeditor.space.nodelink.NodeLinkValues.NODE_LINK_DELETE_BUTTON_RADIUS
 import com.frozy.mindmap.mapeditor.space.nodelink.NodeLinkValues.NODE_LINK_HEAD_ANGLE
 import com.frozy.mindmap.mapeditor.space.nodelink.NodeLinkValues.NODE_LINK_HEAD_LINES_LENGTH
 import com.frozy.mindmap.mapeditor.space.nodelink.NodeLinkValues.NODE_LINK_THICKNESS
+import com.frozy.mindmap.mapeditor.space.nodelink.PendingNodeLink
 import com.frozy.mindmap.ui.utils.strengthen
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -137,7 +140,7 @@ fun DrawScope.drawBoundaryArrow(
     }
 }
 
-fun DrawScope.drawNode(
+fun DrawScope.drawTextNode(
     layout: NodeLayout,
     camera: SpaceCameraState,
     fallbackSelectedBorderColor: Color,
@@ -147,6 +150,12 @@ fun DrawScope.drawNode(
     arrowRightPainter: VectorPainter,
     textMeasurer: TextMeasurer
 ) {
+    //make sure it is a TextNode
+    if(layout.node !is SpaceObject.Node.TextNode) return
+
+    //TextNodes have non-null textPadding values in their layout, this is so the smart cast gets applied
+    if(layout.textPadding == null) return
+
     val fallbackSelectedBorderColor = fallbackSelectedBorderColor.copy(
         alpha = fallbackSelectedBorderColor.alpha*0.2f
     )
@@ -372,11 +381,161 @@ fun DrawScope.drawNode(
     }
 }
 
+fun DrawScope.drawImageNode(
+    layout: NodeLayout,
+    imageBitmap: ImageBitmap,
+    fallbackSelectedBorderColor: Color,
+    arrowUpPainter: VectorPainter,
+    arrowDownPainter: VectorPainter,
+    arrowLeftPainter: VectorPainter,
+    arrowRightPainter: VectorPainter,
+) {
+    val topLeft = layout.nodeHitbox.topLeft
+    val width = layout.nodeHitbox.width
+    val height = layout.nodeHitbox.height
+    val cornerRadius = layout.cornerRadius
+
+    val nodeTopLeft = layout.nodeHitbox.topLeft
+    val nodeWidth = layout.nodeHitbox.width
+    val nodeHeight = layout.nodeHitbox.height
+    val outlineWidth = layout.nodeOutlineWidth
+
+    clipPath(
+        Path().apply {
+            addRoundRect(RoundRect(
+                rect = Rect(offset = topLeft, size = Size(width, height)),
+                cornerRadius = cornerRadius
+            ))
+        }
+    ) {
+        drawImage(
+            image = imageBitmap,
+            dstOffset = IntOffset(x = topLeft.x.toInt(), y = topLeft.y.toInt()),
+            dstSize   = IntSize(width.toInt(), height.toInt())
+        )
+    }
+
+    drawRoundRect(
+        color = fallbackSelectedBorderColor,
+        style = Stroke(width = layout.nodeOutlineWidth),
+        topLeft = topLeft,
+        size = Size(width, height),
+        cornerRadius = cornerRadius
+    )
+
+    if (layout.node.isSelected) {
+        val handleWidth  = NODE_RESIZE_HANDLE_WIDTH
+        val handleHeight = NODE_RESIZE_HANDLE_HEIGHT
+        val handleStrokeWidth  = layout.nodeOutlineWidth / 1.5f
+        val handleCornerRadius = CornerRadius(
+            x = cornerRadius.x / 2f,
+            y = cornerRadius.y / 2f
+        )
+
+        drawRoundRect(
+            color = layout.node.borderColor?.strengthen() ?: fallbackSelectedBorderColor,
+            style = Stroke(width = outlineWidth * 2f),
+            topLeft = nodeTopLeft,
+            size = Size(nodeWidth, nodeHeight),
+            cornerRadius = cornerRadius
+        )
+
+        listOf(
+            layout.resizeHandles.topLeft,
+            layout.resizeHandles.topRight,
+            layout.resizeHandles.bottomLeft,
+            layout.resizeHandles.bottomRight
+        ).forEach { handle ->
+            drawRoundRect(
+                color = layout.node.backgroundColor ?: Color.Transparent,
+                topLeft = handle.topLeft,
+                size = Size(handleWidth, handleHeight),
+                cornerRadius = handleCornerRadius
+            )
+            drawRoundRect(
+                color = layout.node.borderColor?.strengthen() ?: fallbackSelectedBorderColor,
+                style = Stroke(width = handleStrokeWidth),
+                topLeft = handle.topLeft,
+                size = Size(handleWidth, handleHeight),
+                cornerRadius = handleCornerRadius
+            )
+        }
+
+        val arrowSize = NodeArrowHandleValues.ARROW_HANDLE_WIDTH_AND_HEIGHT.dp.toPx()
+
+        //top arrow
+        withTransform(
+            transformBlock = {
+                translate(
+                    left = layout.arrowHandles.top.topLeft.x,
+                    top = layout.arrowHandles.top.topLeft.y
+                )
+            }
+        ) {
+            with(receiver = arrowUpPainter) {
+                draw(
+                    size = Size(width = arrowSize, height = arrowSize),
+                    colorFilter = ColorFilter.tint(Color.White)
+                )
+            }
+        }
+
+        //bottom arrow
+        withTransform(
+            transformBlock = {
+                translate(
+                    left = layout.arrowHandles.bottom.topLeft.x,
+                    top = layout.arrowHandles.bottom.topLeft.y
+                )
+            }
+        ) {
+            with(receiver = arrowDownPainter) {
+                draw(
+                    size = Size(width = arrowSize, height = arrowSize),
+                    colorFilter = ColorFilter.tint(Color.White)
+                )
+            }
+        }
+        //left arrow
+        withTransform(
+            transformBlock = {
+                translate(
+                    left = layout.arrowHandles.left.topLeft.x,
+                    top = layout.arrowHandles.left.topLeft.y
+                )
+            }
+        ) {
+            with(receiver = arrowLeftPainter) {
+                draw(
+                    size = Size(width = arrowSize, height = arrowSize),
+                    colorFilter = ColorFilter.tint(Color.White)
+                )
+            }
+        }
+        //right arrow
+        withTransform(
+            transformBlock = {
+                translate(
+                    left = layout.arrowHandles.right.topLeft.x,
+                    top = layout.arrowHandles.right.topLeft.y
+                )
+            }
+        ) {
+            with(receiver = arrowRightPainter) {
+                draw(
+                    size = Size(width = arrowSize, height = arrowSize),
+                    colorFilter = ColorFilter.tint(Color.White)
+                )
+            }
+        }
+    }
+}
+
 fun DrawScope.drawAllNodeLinks(
-    links: List<MapItemObject.SpaceNodeLink>,
+    links: List<SpaceObject.NodeLink>,
     layouts: List<NodeLayout>,
     color: Color,
-    selectedLink: MapItemObject.SpaceNodeLink?
+    selectedLink: SpaceObject.NodeLink?
 ) {
     val layoutMap = layouts.associateBy { it.node.uuid }
     val strokeWidth = NODE_LINK_THICKNESS.dp.toPx()
@@ -491,7 +650,7 @@ fun DrawScope.drawPendingNodeLink(
 }
 
 fun DrawScope.drawSelectedNodeLinkDeleteButton(
-    link: MapItemObject.SpaceNodeLink,
+    link: SpaceObject.NodeLink,
     layouts: List<NodeLayout>,
     painter: VectorPainter,
     tintColor: Color

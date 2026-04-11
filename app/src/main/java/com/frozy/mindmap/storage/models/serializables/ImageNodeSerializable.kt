@@ -3,9 +3,10 @@ package com.frozy.mindmap.storage.models.serializables
 import com.frozy.mindmap.constants.FeatureVersions
 import kotlinx.serialization.Serializable
 
+//todo fix bytearray warning
 @Serializable
-data class SpaceNodeSerializable (
-    val version: Int = FeatureVersions.SPACE_NODE_DATA_VERSION,
+data class ImageNodeSerializable(
+    val version: Int = FeatureVersions.IMAGE_NODE_DATA_VERSION,
     val uuid: String,
     val x: Float,
     val y: Float,
@@ -13,6 +14,5 @@ data class SpaceNodeSerializable (
     val height: Float,
     val borderColor: ULong?,
     val backgroundColor: ULong?,
-    val text: String,
-    val fontSize: Float
+    val bitmapBytes: ByteArray
 )

@@ -2,16 +2,15 @@ package com.frozy.mindmap.main
 
 import android.app.Application
 import android.content.Intent
-import com.frozy.mindmap.R
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.frozy.mindmap.MindMapApplication
+import com.frozy.mindmap.R
 import com.frozy.mindmap.constants.FileExtension.APP_FILE_EXTENSION
 import com.frozy.mindmap.main.models.MapListEntry
 import com.frozy.mindmap.main.models.ToastEvent
-import com.frozy.mindmap.storage.MapRepository
 import com.frozy.mindmap.storage.models.MapFileMetadata
 import com.frozy.mindmap.storage.models.OperationResult
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +25,7 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 
 //todo [small] more specific toasts
+//todo [small] toast when the file extension is incorrect
 
 class MainActivityViewModel(application: Application) : AndroidViewModel(application) {
     private val context = getApplication<Application>()

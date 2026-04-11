@@ -81,4 +81,5 @@ dependencies {
     implementation(libs.androidx.compose.foundation)
     implementation(libs.colorpicker.compose)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.coil.compose)
 }

@@ -2,17 +2,16 @@ package com.frozy.mindmap.mapeditor.space.input
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import com.frozy.mindmap.mapeditor.models.MapItemObject
+import com.frozy.mindmap.mapeditor.space.models.SpaceObject
 import com.frozy.mindmap.mapeditor.space.node.layout.NodeLayout
 import com.frozy.mindmap.mapeditor.space.node.side.NodeSideType
 import com.frozy.mindmap.mapeditor.space.nodelink.NodeLinkValues.NODE_LINK_DELETE_BUTTON_RADIUS
 import com.frozy.mindmap.mapeditor.space.nodelink.NodeLinkValues.NODE_LINK_HITBOX_TOLERANCE
-import kotlin.collections.asReversed
 
 fun categorizeHitAtType(
     layouts: List<NodeLayout>,
-    nodeLinks: List<MapItemObject.SpaceNodeLink>,
-    selectedNodeLink: MapItemObject.SpaceNodeLink?,
+    nodeLinks: List<SpaceObject.NodeLink>,
+    selectedNodeLink: SpaceObject.NodeLink?,
     pointerPos: Offset
 ): HitAt {
     val deleteButtonRadius = NODE_LINK_DELETE_BUTTON_RADIUS
@@ -67,7 +66,7 @@ fun categorizeHitAtType(
 }
 
 fun nodeLinkMidpoint(
-    link: MapItemObject.SpaceNodeLink,
+    link: SpaceObject.NodeLink,
     layouts: List<NodeLayout>
 ): Offset? {
     val layoutMap = layouts.associateBy { it.node.uuid }
@@ -86,7 +85,7 @@ fun nodeLinkMidpoint(
 fun returnHitNodeOrNull(
     layouts: List<NodeLayout>,
     pointerPos: Offset
-): MapItemObject.SpaceNode? {
+): SpaceObject.Node? {
     //asReversed() is necessary so that nodes at the top are the ones that get detected first
     for (layout in layouts.asReversed()){
         if(layout.nodeHitbox.contains(pointerPos)){
@@ -137,10 +136,10 @@ fun returnHitNodeSideOrNull(
 }
 
 fun returnHitNodeLinkOrNull(
-    nodeLinks: List<MapItemObject.SpaceNodeLink>,
+    nodeLinks: List<SpaceObject.NodeLink>,
     layouts: List<NodeLayout>,
     pointerPos: Offset
-): MapItemObject.SpaceNodeLink? {
+): SpaceObject.NodeLink? {
     val layoutMap = layouts.associateBy { it.node.uuid }
 
     return nodeLinks.asReversed().firstOrNull { link ->

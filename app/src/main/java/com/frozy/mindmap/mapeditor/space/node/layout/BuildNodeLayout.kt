@@ -4,20 +4,20 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import com.frozy.mindmap.mapeditor.models.MapItemObject
-import com.frozy.mindmap.mapeditor.space.node.resizehandle.NodeResizeHandles
 import com.frozy.mindmap.mapeditor.space.camera.SpaceCameraState
-import com.frozy.mindmap.mapeditor.space.node.arrowhandle.NodeArrowHandles
-import com.frozy.mindmap.mapeditor.space.node.arrowhandle.NodeArrowHandleValues.ARROW_HANDLE_SPACING_FROM_NODE
-import com.frozy.mindmap.mapeditor.space.node.arrowhandle.NodeArrowHandleValues.ARROW_HANDLE_WIDTH_AND_HEIGHT
 import com.frozy.mindmap.mapeditor.space.constants.models.NodeLayoutValues.NODE_CORNER_RADIUS_X
 import com.frozy.mindmap.mapeditor.space.constants.models.NodeLayoutValues.NODE_CORNER_RADIUS_Y
 import com.frozy.mindmap.mapeditor.space.constants.models.NodeLayoutValues.NODE_OUTLINE_WIDTH
 import com.frozy.mindmap.mapeditor.space.constants.models.NodeLayoutValues.NODE_TEXT_PADDING
 import com.frozy.mindmap.mapeditor.space.constants.models.NodeResizeHandleValues.NODE_RESIZE_HANDLE_HEIGHT
 import com.frozy.mindmap.mapeditor.space.constants.models.NodeResizeHandleValues.NODE_RESIZE_HANDLE_WIDTH
+import com.frozy.mindmap.mapeditor.space.models.SpaceObject
+import com.frozy.mindmap.mapeditor.space.node.arrowhandle.NodeArrowHandleValues.ARROW_HANDLE_SPACING_FROM_NODE
+import com.frozy.mindmap.mapeditor.space.node.arrowhandle.NodeArrowHandleValues.ARROW_HANDLE_WIDTH_AND_HEIGHT
+import com.frozy.mindmap.mapeditor.space.node.arrowhandle.NodeArrowHandles
+import com.frozy.mindmap.mapeditor.space.node.resizehandle.NodeResizeHandles
 
-fun MapItemObject.SpaceNode.buildNodeLayout(
+fun SpaceObject.Node.buildNodeLayout(
     camera: SpaceCameraState
 ): NodeLayout {
 
@@ -29,7 +29,10 @@ fun MapItemObject.SpaceNode.buildNodeLayout(
         x = NODE_CORNER_RADIUS_X * camera.scale,
         y = NODE_CORNER_RADIUS_Y * camera.scale
     )
-    val textPadding = (NODE_TEXT_PADDING * camera.scale).toInt()
+    val textPadding = when(this) {
+        is SpaceObject.Node.TextNode -> (NODE_TEXT_PADDING * camera.scale).toInt()
+        is SpaceObject.Node.ImageNode -> null
+    }
 
     val nodeHitbox = Rect(
         offset = scaledOffset,

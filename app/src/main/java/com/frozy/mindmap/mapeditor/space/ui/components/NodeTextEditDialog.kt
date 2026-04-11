@@ -75,12 +75,12 @@ fun NodeTextEditDialog(
                     onConfirm(nodeText, fontSize.sp)
                 }
             ) {
-                Text(text = stringResource(id = R.string.text_confirm))
+                Text(text = stringResource(id = R.string.word_confirm))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(text = stringResource(id = R.string.text_cancel))
+                Text(text = stringResource(id = R.string.word_cancel))
             }
         }
     )

@@ -62,7 +62,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -70,21 +69,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.frozy.mindmap.R
 import com.frozy.mindmap.constants.FileExtension.APP_FILE_EXTENSION
-import com.frozy.mindmap.mapeditor.note.ui.NoteScreen
-import com.frozy.mindmap.mapeditor.space.node.constants.NodeValues.DEFAULT_NODE_HEIGHT
-import com.frozy.mindmap.mapeditor.space.node.constants.NodeValues.DEFAULT_NODE_WIDTH
 import com.frozy.mindmap.mapeditor.models.MapItem
-import com.frozy.mindmap.mapeditor.models.MapItemObject
+import com.frozy.mindmap.mapeditor.note.ui.NoteScreen
+import com.frozy.mindmap.mapeditor.space.camera.SpaceCameraState
 import com.frozy.mindmap.mapeditor.space.ui.components.SpaceScreen
 import com.frozy.mindmap.ui.components.BottomSheetItem
 import com.frozy.mindmap.ui.theme.MindMapTheme
 import com.frozy.mindmap.ui.theme.MindMapTypography
 import com.frozy.mindmap.ui.utils.hideSystemStatusBar
-import com.frozy.mindmap.ui.utils.lighten
 import kotlinx.coroutines.launch
 import java.util.UUID
-
-//todo [BIG] images!
 
 class MapEditorActivity : ComponentActivity() {
     private val mevm: MapEditorViewModel by viewModels()
@@ -127,12 +121,15 @@ fun MapEditorUI(
     displayNameTitle: String?
 ){
     val context = LocalContext.current
-    val displayNameTitle = if(displayNameTitle == null) {
-        Toast.makeText(context, "Failed to get map name.", Toast.LENGTH_LONG).show()
-        "Unknown"
-    } else {
-        displayNameTitle
-    }
+    val toastFailedToGetMapName = stringResource(id = R.string.toast_mapeditor_failed_to_get_map_name)
+    val displayNameTitle =
+        if(displayNameTitle == null) {
+            Toast.makeText(context,
+                toastFailedToGetMapName, Toast.LENGTH_LONG).show()
+            stringResource(id = R.string.word_unknown)
+        } else {
+            displayNameTitle
+        }
     val coroutineScope = rememberCoroutineScope()
 
     val sheetState = rememberModalBottomSheetState()
@@ -148,17 +145,10 @@ fun MapEditorUI(
     val isEditorModeEnabled by mevm.isEditorModeEnabled.collectAsState()
     val mapItemPagerList by mevm.mapItemPagerList.collectAsState()
     val allSelectedNodes by mevm.allSelectedNodes.collectAsState()
-    val numberOfSelectedNodes by remember(key1 = allSelectedNodes) {
+
+    val numberOfSelectedObjects by remember(key1 = allSelectedNodes) {
         derivedStateOf { allSelectedNodes.size }
     }
-
-    //default SpaceNode parameters when creating a node in a Space
-    val defaultNodeWidth = DEFAULT_NODE_WIDTH
-    val defaultNodeHeight = DEFAULT_NODE_HEIGHT
-    val defaultNodeBorderColor = Color.White
-    val defaultNodeBackgroundColor = MaterialTheme.colorScheme.background.lighten(fraction = 0.12f)
-    val defaultNodeText = stringResource(id = R.string.default_space_node_text)
-    val defaultNodeFontSize = MaterialTheme.typography.bodyMedium.fontSize
 
     val pagerState = rememberPagerState(pageCount = { mapItemPagerList.size })
     var isHorizontalPagerVisible by remember { mutableStateOf(value = mapItemPagerList.isNotEmpty()) }
@@ -257,35 +247,35 @@ fun MapEditorUI(
         },
         floatingActionButton = {
             Column {
-                if (pagerState.pageCount != 0) {
-                    if (mapItemPagerList[pagerState.currentPage] is MapItem.Space) {
-                        if(numberOfSelectedNodes == 1) {
-                            FloatingActionButton(
-                                containerColor = MaterialTheme.colorScheme.secondary,
-                                onClick = {
-                                    mevm.changeNodeEditorSheetVisibility(value = true)
-                                }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = stringResource(id = R.string.contentDescription_add_new_content_in_map_editor)
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(height = 8.dp))
-                        }
+                val currentMapItem = mapItemPagerList.getOrNull(index = pagerState.currentPage)
+
+                if (currentMapItem is MapItem.Space) {
+                    if (numberOfSelectedObjects == 1) {
                         FloatingActionButton(
                             containerColor = MaterialTheme.colorScheme.secondary,
                             onClick = {
-                                mevm.changeNodeSheetVisibility(value = true)
+                                mevm.changeNodeEditorSheetVisibility(value = true)
                             }
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Construction,
+                                imageVector = Icons.Default.Edit,
                                 contentDescription = stringResource(id = R.string.contentDescription_add_new_content_in_map_editor)
                             )
                         }
                         Spacer(modifier = Modifier.height(height = 8.dp))
                     }
+                    FloatingActionButton(
+                        containerColor = MaterialTheme.colorScheme.secondary,
+                        onClick = {
+                            mevm.changeNodeSheetVisibility(value = true)
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Construction,
+                            contentDescription = stringResource(id = R.string.contentDescription_add_new_content_in_map_editor)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(height = 8.dp))
                 }
                 FloatingActionButton(
                     onClick = {
@@ -299,8 +289,7 @@ fun MapEditorUI(
                     )
                 }
             }
-        }
-    ) { innerPadding ->
+        }    ) { innerPadding ->
         Surface(
             modifier = Modifier.padding(paddingValues = innerPadding)
         ) {
@@ -334,32 +323,6 @@ fun MapEditorUI(
                                             mevm = mevm,
                                             mapItemUUID = currentPage.uuid,
                                             pagerState = pagerState,
-                                            onAddNode = { canvasSize, camera, _ ->
-                                                val mapItemUUID = currentPage.uuid
-
-                                                val canvasCenterX = (canvasSize.width/2f - camera.offset.x) / camera.scale
-                                                val canvasCenterY = (canvasSize.height/2f - camera.offset.y) / camera.scale
-
-                                                val defaultNodeOffset = Offset(
-                                                    x = canvasCenterX - defaultNodeWidth/2,
-                                                    y = canvasCenterY - defaultNodeHeight/2
-                                                )
-
-                                                val defaultNode = MapItemObject.SpaceNode(
-                                                    offset = defaultNodeOffset,
-                                                    width = defaultNodeWidth,
-                                                    height = defaultNodeHeight,
-                                                    borderColor = defaultNodeBorderColor,
-                                                    backgroundColor = defaultNodeBackgroundColor,
-                                                    text = defaultNodeText,
-                                                    fontSize = defaultNodeFontSize
-                                                )
-
-                                                mevm.miplAddSpaceNodeToSpace(
-                                                    mapItemUUID = mapItemUUID,
-                                                    node = defaultNode
-                                                )
-                                            },
                                         )
                                     }
                                 }
@@ -435,7 +398,12 @@ fun MapEditorUI(
                     icon = Icons.Default.Lightbulb,
                     text = stringResource(id = R.string.map_editor_new_note),
                     itemOnClick = {
-                        mevm.miplAddMapItem(mapItem = MapItem.Note())
+                        mevm.addMapItem(
+                            mapItem = MapItem.Note(
+                                titleText = "",
+                                contentText = ""
+                            )
+                        )
                         coroutineScope.launch {
                             sheetState.hide()
                         }.invokeOnCompletion {
@@ -450,7 +418,12 @@ fun MapEditorUI(
                     icon = Icons.Default.Cable,
                     text = stringResource(id = R.string.map_editor_new_space),
                     itemOnClick = {
-                        mevm.miplAddMapItem(mapItem = MapItem.Space())
+                        mevm.addMapItem(
+                            mapItem = MapItem.Space(
+                                cameraState = SpaceCameraState(),
+                                objectInfo = emptyList()
+                            )
+                        )
                         coroutineScope.launch {
                             sheetState.hide()
                         }.invokeOnCompletion {
@@ -465,7 +438,31 @@ fun MapEditorUI(
                     icon = Icons.Default.Delete,
                     text = stringResource(id = R.string.bottom_sheet_item_delete_current_map_item),
                     itemOnClick = {
-                        mevm.miplRemoveMapItem(mapItemUUID = mapItemPagerList[pagerState.currentPage].uuid)
+                        val currentIndex = pagerState.currentPage
+                        val targetIndex = when {
+                            mapItemPagerList.size <= 1 -> -1  // deleting last item
+                            currentIndex > 0 -> currentIndex - 1
+                            else -> 0
+                        }
+
+                        coroutineScope.launch {
+                            sheetState.hide()
+                        }.invokeOnCompletion {
+                            isBottomSheetVisible = false
+                            if (targetIndex >= 0) {
+                                coroutineScope.launch {
+                                    pagerState.scrollToPage(page = targetIndex)
+                                }.invokeOnCompletion {
+                                    mevm.deleteMapItem(
+                                        mapItemUUID = mapItemPagerList[currentIndex].uuid
+                                    )
+                                }
+                            } else {
+                                mevm.deleteMapItem(
+                                    mapItemUUID = mapItemPagerList[currentIndex].uuid
+                                )
+                            }
+                        }
                     }
                 )
             }

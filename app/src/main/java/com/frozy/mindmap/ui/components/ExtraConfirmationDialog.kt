@@ -21,12 +21,12 @@ fun ExtraConfirmationDialog(
             TextButton(
                 onClick = onConfirm,
             ) {
-                Text(text = stringResource(id = R.string.text_delete))
+                Text(text = stringResource(id = R.string.word_delete))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(text = stringResource(id = R.string.text_cancel))
+                Text(text = stringResource(id = R.string.word_cancel))
             }
         },
     )

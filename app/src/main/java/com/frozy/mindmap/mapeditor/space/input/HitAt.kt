@@ -1,7 +1,7 @@
 package com.frozy.mindmap.mapeditor.space.input
 
 import androidx.compose.ui.geometry.Rect
-import com.frozy.mindmap.mapeditor.models.MapItemObject
+import com.frozy.mindmap.mapeditor.space.models.SpaceObject
 import com.frozy.mindmap.mapeditor.space.node.layout.NodeLayout
 import com.frozy.mindmap.mapeditor.space.node.resizehandle.NodeResizeHandleType
 import com.frozy.mindmap.mapeditor.space.node.side.NodeSideType
@@ -25,11 +25,11 @@ sealed class HitAt {
     ) : HitAt()
 
     data class HitNodeLink(
-        val link: MapItemObject.SpaceNodeLink
+        val link: SpaceObject.NodeLink
     ) : HitAt()
 
     data class HitNodeLinkDeleteButton(
-        val link: MapItemObject.SpaceNodeLink
+        val link: SpaceObject.NodeLink
     ) : HitAt()
 
     data object HitCanvas : HitAt()

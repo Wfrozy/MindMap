@@ -1,6 +1,11 @@
 package com.frozy.mindmap.mapeditor.space.ui.components
 
 import android.app.Activity
+import android.graphics.BitmapFactory
+import android.net.Uri
+import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -43,33 +48,38 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import com.frozy.mindmap.R
 import com.frozy.mindmap.mapeditor.MapEditorViewModel
+import com.frozy.mindmap.mapeditor.models.MapItem
 import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.BOUNDARY_ALPHA_ANIMATION_DURATION_MILLIS
 import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.BOUNDARY_ARROW_SIZE
 import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.BOUNDARY_FADE_WIDTH
 import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.BOUNDARY_TOLERANCE
-import com.frozy.mindmap.mapeditor.space.input.HitAt
-import com.frozy.mindmap.mapeditor.models.MapItem
-import com.frozy.mindmap.mapeditor.models.MapItemObject
-import com.frozy.mindmap.mapeditor.space.camera.SpaceCameraState
 import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.DRAG_THRESHOLD
 import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.MAX_OVERSCROLL
 import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.MAX_WORLD_X
 import com.frozy.mindmap.mapeditor.space.constants.SpaceValues.MIN_WORLD_X
-import com.frozy.mindmap.mapeditor.space.nodelink.PendingNodeLink
-import com.frozy.mindmap.mapeditor.space.node.layout.buildNodeLayout
+import com.frozy.mindmap.mapeditor.space.input.HitAt
 import com.frozy.mindmap.mapeditor.space.input.categorizeHitAtType
 import com.frozy.mindmap.mapeditor.space.input.returnHitNodeOrNull
 import com.frozy.mindmap.mapeditor.space.input.returnHitNodeSideOrNull
-import com.frozy.mindmap.ui.components.BottomSheetItem
+import com.frozy.mindmap.mapeditor.space.models.SpaceObject
+import com.frozy.mindmap.mapeditor.space.node.constants.NodeValues.DEFAULT_NODE_HEIGHT
+import com.frozy.mindmap.mapeditor.space.node.constants.NodeValues.DEFAULT_NODE_WIDTH
+import com.frozy.mindmap.mapeditor.space.node.imagenode.uriToByteArray
+import com.frozy.mindmap.mapeditor.space.node.layout.buildNodeLayout
+import com.frozy.mindmap.mapeditor.space.nodelink.PendingNodeLink
 import com.frozy.mindmap.mapeditor.space.ui.components.nodecolorpicker.NodeColorPicker
+import com.frozy.mindmap.ui.components.BottomSheetItem
 import com.frozy.mindmap.ui.utils.hideSystemStatusBar
 import com.frozy.mindmap.ui.utils.lighten
 import kotlinx.coroutines.launch
@@ -81,44 +91,67 @@ fun SpaceScreen(
     activity: Activity?,
     mevm: MapEditorViewModel,
     mapItemUUID: UUID,
-    onAddNode: (Size, SpaceCameraState, Offset) -> Unit,
     pagerState: PagerState,
 ) {
+    val context = LocalContext.current
+
     val coroutineScope = rememberCoroutineScope()
     val mipl = mevm.mapItemPagerList.collectAsState()
 
-    var editingNode by remember { mutableStateOf<MapItemObject.SpaceNode?>(value = null) }
+    var editingTextNode by remember { mutableStateOf<SpaceObject.Node.TextNode?>(value = null) }
 
-    val thisSpace by remember(key1 = mipl) {
+    val space by remember(key1 = mipl) {
         derivedStateOf {
-            mipl.value.first { mapItem ->
+            mipl.value.firstOrNull { mapItem ->
                 mapItem is MapItem.Space && mapItem.uuid == mapItemUUID
-            } as MapItem.Space
+            } as? MapItem.Space
+        }
+    }
+    val thisSpace = space ?: return
+
+    val allNodes by remember(key1 = thisSpace) {
+        derivedStateOf {
+            thisSpace.objectInfo.filterIsInstance<SpaceObject.Node>()
         }
     }
 
-    val nodes by remember(key1 = thisSpace) {
+    val allNodeLinks by remember(key1 = thisSpace) {
         derivedStateOf {
-            thisSpace.spaceNodeInfo
+            thisSpace.objectInfo.filterIsInstance<SpaceObject.NodeLink>()
         }
     }
 
 
     var camera by remember { mutableStateOf(value = thisSpace.cameraState) }
-    var pendingNodeLink by remember { mutableStateOf<PendingNodeLink?>(value = null) }
 
-    var selectedNodeLink by remember { mutableStateOf<MapItemObject.SpaceNodeLink?>(value = null) }
+    var pendingNodeLink by remember { mutableStateOf<PendingNodeLink?>(value = null) }
+    var selectedNodeLink by remember { mutableStateOf<SpaceObject.NodeLink?>(value = null) }
+
     val deleteIconPainter = rememberVectorPainter(image = Icons.Default.Close)
 
-    //build all layouts at the start of the frame
-    //rememberUpdatedState is for updating the value of layouts that .pointerInput() receives
-    val l = nodes.map { node -> return@map node.buildNodeLayout(camera) }
 
-    val layoutsState = rememberUpdatedState(newValue = l)
 
-    val layouts by remember(key1 = layoutsState){
-        derivedStateOf{ layoutsState.value }
+    //--- build all layouts at the start of the frame ---//
+
+    val l = allNodes.map { it.buildNodeLayout(camera) }
+    val nodeLayoutsState = rememberUpdatedState(newValue = l)
+
+    val layouts by remember(key1 = nodeLayoutsState){
+        derivedStateOf{ nodeLayoutsState.value }
     }
+
+    //--- ---//
+
+
+
+    val imageBitmapMap: Map<UUID, ImageBitmap> = remember(key1 = allNodes) {
+        allNodes.filterIsInstance<SpaceObject.Node.ImageNode>().associate { image ->
+            image.uuid to BitmapFactory
+                .decodeByteArray(image.bitmapBytes, 0, image.bitmapBytes.size)
+                .asImageBitmap()
+        }
+    }
+
 
     //starts at 0 but then gets the value once a Canvas gets drawn
     var canvasSize by remember { mutableStateOf(value = Size.Zero) }
@@ -137,7 +170,7 @@ fun SpaceScreen(
 
     //when the bottom sheet with the node editing stuff becomes visible, it uses this variable to
     // snapshot it to avoid a NullPointerException
-    var snapshotNodeValue by remember { mutableStateOf<MapItemObject.SpaceNode?>(value = null) }
+    var snapshotNodeValue by remember { mutableStateOf<SpaceObject.Node?>(value = null) }
 
     val boundaryLeftArrowPainter = rememberVectorPainter(image = Icons.AutoMirrored.Filled.ArrowBack)
     val boundaryRightArrowPainter = rememberVectorPainter(image = Icons.AutoMirrored.Filled.ArrowForward)
@@ -154,6 +187,14 @@ fun SpaceScreen(
     val fallbackSelectedNodeBorderColor = MaterialTheme.colorScheme.tertiary
     val errorColor = MaterialTheme.colorScheme.error
 
+    //default SpaceNode parameters when creating a node in a Space
+    val defaultNodeWidth = DEFAULT_NODE_WIDTH
+    val defaultNodeHeight = DEFAULT_NODE_HEIGHT
+    val defaultNodeBorderColor = Color.White
+    val defaultNodeBackgroundColor = MaterialTheme.colorScheme.background.lighten(fraction = 0.12f)
+    val defaultNodeText = stringResource(id = R.string.default_space_node_text)
+    val defaultNodeFontSize = MaterialTheme.typography.bodyMedium.fontSize
+
     val textMeasurer = rememberTextMeasurer()
 
     val leftEdgeCam = -camera.offset.x / camera.scale
@@ -169,12 +210,8 @@ fun SpaceScreen(
     val currentMinCameraX = canvasSize.width - MAX_WORLD_X * camera.scale
     val currentMaxCameraX = -MIN_WORLD_X * camera.scale
 
-    //variable that stores the offset of the last long press on the Space
-    //used for calculating the spawn position of nodes when you create them
-    var longPressOffset by remember { mutableStateOf(value = Offset.Zero) }
-
     //list of colors for the NodeColorPickers
-    val predefinedBorderColors = listOf(
+    val predefinedColorPickerBorderColors = listOf(
         MaterialTheme.colorScheme.tertiary,
         Color.White,
         Color(color = 0xFFFFCA28), //yellow
@@ -183,7 +220,7 @@ fun SpaceScreen(
         Color(color = 0xFF42A5F5), //blue
     )
 
-    val predefinedBackgroundColors = listOf(
+    val predefinedColorPickerBackgroundColors = listOf(
         MaterialTheme.colorScheme.background.lighten(fraction = 0.12f),
         Color.White,
         Color(color = 0xFFFFCA28), //yellow
@@ -217,6 +254,37 @@ fun SpaceScreen(
         )
     )
 
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri ?: return@rememberLauncherForActivityResult
+
+        coroutineScope.launch {
+            val bitmapBytes = uriToByteArray(context, uri) ?: return@launch
+
+            val canvasCenterX = (canvasSize.width/2f - camera.offset.x) / camera.scale
+            val canvasCenterY = (canvasSize.height/2f - camera.offset.y) / camera.scale
+            val defaultNodeOffset = Offset(
+                x = canvasCenterX - defaultNodeWidth/2,
+                y = canvasCenterY - defaultNodeHeight/2
+            )
+
+            val newImageNode = SpaceObject.Node.ImageNode(
+                offset = defaultNodeOffset,
+                width = defaultNodeWidth,
+                height = defaultNodeHeight,
+                borderColor = defaultNodeBorderColor,
+                backgroundColor = defaultNodeBackgroundColor,
+                bitmapBytes = bitmapBytes
+            )
+
+            mevm.addNode(
+                spaceUUID = thisSpace.uuid,
+                newNode = newImageNode
+            )
+        }
+    }
+
     //avoids race conditions with the composable being toggled with if() and .show() animation
     LaunchedEffect(key1 = isItemAdderSheetVisible) {
         if (isItemAdderSheetVisible) {
@@ -237,24 +305,12 @@ fun SpaceScreen(
         }
     }
 
-
-//    LaunchedEffect(key1 = pagerState.currentPage) {
-//        activity?.hideSystemStatusBar()
-//        if (canvasSize != Size.Zero) {
-//            camera = camera.copy(
-//                offset = Offset(
-//                    x = canvasSize.width / 2f,
-//                    y = canvasSize.height / 2f
-//                )
-//            )
-//        }
-//    }
-
     LaunchedEffect(key1 = camera) {
-        mevm.miplUpdateSpaceCamera(
-            mapItemUUID = mapItemUUID,
+        mevm.updateSpaceCamera(
+            spaceUUID = mapItemUUID,
             camera = camera
         )
+        Log.v("", "layouts: $layouts")
     }
 
     Box(
@@ -267,8 +323,8 @@ fun SpaceScreen(
                     firstDown.consume()
 
                     val hit = categorizeHitAtType(
-                        layouts = layoutsState.value,
-                        nodeLinks = thisSpace.nodeLinkInfo,
+                        layouts = layouts,
+                        nodeLinks = allNodeLinks,
                         selectedNodeLink = selectedNodeLink,
                         pointerPos = firstDown.position
                     )
@@ -286,8 +342,8 @@ fun SpaceScreen(
                                 val worldDelta =
                                     (change.position - firstDown.position) / camera.scale
 
-                                mevm.miplResizeSpaceNode(
-                                    mapItemUUID = thisSpace.uuid,
+                                mevm.resizeSpaceNode(
+                                    spaceUUID = thisSpace.uuid,
                                     nodeUUID = hit.layout.node.uuid,
                                     handleType = hit.handleType,
                                     worldDragDelta = worldDelta,
@@ -304,8 +360,8 @@ fun SpaceScreen(
                             val isAlreadySelected = hit.layout.node.isSelected
 
                             if (!isAlreadySelected) {
-                                mevm.miplSelectSpaceNode(
-                                    mapItemUUID = thisSpace.uuid,
+                                mevm.selectNode(
+                                    spaceUUID = thisSpace.uuid,
                                     nodeUUID = hit.layout.node.uuid
                                 )
                             }
@@ -325,19 +381,19 @@ fun SpaceScreen(
                                 if (didDrag) {
                                     val worldDelta =
                                         (change.position - change.previousPosition) / camera.scale
-                                    mevm.miplMoveSpaceNode(
-                                        mapItemUUID = thisSpace.uuid,
+                                    mevm.moveSpaceNode(
+                                        spaceUUID = thisSpace.uuid,
                                         nodeUUID = hit.layout.node.uuid,
                                         delta = worldDelta
                                     )
                                 }
                             } while (event.changes.any { it.pressed })
 
-                            //if the finger moved, it was a drag not a tap so don't open the editor
+                            //if the finger moved, it means it a drag not a tap so don't open the editor
                             if (didDrag) {
-                                editingNode = null
-                            } else if(isAlreadySelected) {
-                                editingNode = hit.layout.node
+                                editingTextNode = null
+                            } else if (isAlreadySelected && hit.layout.node is SpaceObject.Node.TextNode) {
+                                editingTextNode = hit.layout.node
                             }
                         }
 
@@ -361,12 +417,12 @@ fun SpaceScreen(
                             } while (event.changes.any { it.pressed })
 
                             val targetNode = returnHitNodeOrNull(
-                                layouts = layoutsState.value,
+                                layouts = layouts,
                                 pointerPos = currentPointerPos
                             )
 
                             val targetNodeSide = returnHitNodeSideOrNull(
-                                layouts = layoutsState.value,
+                                layouts = layouts,
                                 pointerPos = currentPointerPos
                             )
 
@@ -375,8 +431,8 @@ fun SpaceScreen(
                                 targetNodeSide != null &&
                                 targetNode.uuid != hit.layout.node.uuid
                             ) {
-                                mevm.miplCreateNodeLink(
-                                    mapItemUUID = thisSpace.uuid,
+                                mevm.addNodeLink(
+                                    spaceUUID = thisSpace.uuid,
                                     fromNodeUUID = hit.layout.node.uuid,
                                     fromNodeSide = hit.sideType,
                                     toNodeUUID = targetNode.uuid,
@@ -389,22 +445,21 @@ fun SpaceScreen(
 
                         is HitAt.HitNodeLink -> {
                             selectedNodeLink = hit.link
-                            mevm.miplDeselectAllSpaceNodes(
-                                mapItemUUID = thisSpace.uuid
+                            mevm.deselectAllNodes(
+                                spaceUUID = thisSpace.uuid
                             )
                         }
 
                         is HitAt.HitNodeLinkDeleteButton -> {
-                            mevm.miplRemoveNodeLink(
-                                mapItemUUID  = thisSpace.uuid,
+                            mevm.deleteNodeLink(
+                                spaceUUID = thisSpace.uuid,
                                 linkUUID = hit.link.uuid
                             )
                             selectedNodeLink = null
                         }
 
-                        //hit on canvas
                         is HitAt.HitCanvas -> {
-                            mevm.miplDeselectAllSpaceNodes(mapItemUUID = thisSpace.uuid)
+                            mevm.deselectAllNodes(spaceUUID = thisSpace.uuid)
                             selectedNodeLink = null
 
                             var prevPositions = mapOf(firstDown.id to firstDown.position)
@@ -415,22 +470,22 @@ fun SpaceScreen(
 
                                 //pinch to zoom
                                 if (activePointers.size >= 2) {
-                                    val p0 = activePointers[0]
-                                    val p1 = activePointers[1]
+                                    val pointer1 = activePointers[0]
+                                    val pointer2 = activePointers[1]
 
-                                    val prevC0 = prevPositions[p0.id] ?: p0.position
-                                    val prevC1 = prevPositions[p1.id] ?: p1.position
+                                    val pointer1PrevPos = prevPositions[pointer1.id] ?: pointer1.position
+                                    val pointer2PrevPos = prevPositions[pointer2.id] ?: pointer2.position
 
-                                    val prevDist = (prevC1 - prevC0).getDistance()
-                                    val currDist = (p1.position - p0.position).getDistance()
+                                    val prevDist = (pointer2PrevPos - pointer1PrevPos).getDistance()
+                                    val currDist = (pointer2.position - pointer1.position).getDistance()
                                     val zoom = if (prevDist > 0f) {
                                         currDist / prevDist
                                     } else {
                                         1f
                                     }
 
-                                    val prevCentroid = (prevC0 + prevC1) / 2f
-                                    val currCentroid = (p0.position + p1.position) / 2f
+                                    val prevCentroid = (pointer1PrevPos + pointer2PrevPos) / 2f
+                                    val currCentroid = (pointer1.position + pointer2.position) / 2f
                                     val pan = currCentroid - prevCentroid
 
                                     val newScale = (camera.scale * zoom).coerceIn(0.4f, 3f)
@@ -514,20 +569,37 @@ fun SpaceScreen(
             )
 
             for (layout in layouts) {
-                drawNode(
-                    layout = layout,
-                    camera = camera,
-                    fallbackSelectedBorderColor = fallbackSelectedNodeBorderColor,
-                    arrowUpPainter = nodeArrowUpPainter,
-                    arrowDownPainter = nodeArrowDownPainter,
-                    arrowLeftPainter = nodeArrowLeftPainter,
-                    arrowRightPainter = nodeArrowRightPainter,
-                    textMeasurer = textMeasurer
-                )
+                when(layout.node) {
+                    is SpaceObject.Node.ImageNode -> {
+                        val bitmap = imageBitmapMap[layout.node.uuid] ?: continue
+                        drawImageNode(
+                            layout = layout,
+                            imageBitmap = bitmap,
+                            fallbackSelectedBorderColor = fallbackSelectedNodeBorderColor,
+                            arrowUpPainter = nodeArrowUpPainter,
+                            arrowDownPainter = nodeArrowDownPainter,
+                            arrowLeftPainter = nodeArrowLeftPainter,
+                            arrowRightPainter = nodeArrowRightPainter,
+                        )
+                    }
+
+                    is SpaceObject.Node.TextNode -> {
+                        drawTextNode(
+                            layout = layout,
+                            camera = camera,
+                            fallbackSelectedBorderColor = fallbackSelectedNodeBorderColor,
+                            arrowUpPainter = nodeArrowUpPainter,
+                            arrowDownPainter = nodeArrowDownPainter,
+                            arrowLeftPainter = nodeArrowLeftPainter,
+                            arrowRightPainter = nodeArrowRightPainter,
+                            textMeasurer = textMeasurer
+                        )
+                    }
+                }
             }
 
             drawAllNodeLinks(
-                links = thisSpace.nodeLinkInfo,
+                links = allNodeLinks,
                 layouts = layouts,
                 selectedLink = selectedNodeLink,
                 color = nodeLinkColor
@@ -657,7 +729,28 @@ fun SpaceScreen(
                     contentDescription = stringResource(id = R.string.contentDescription_map_editor_add_new_node),
                     text = stringResource(id = R.string.map_editor_add_new_node),
                     itemOnClick = {
-                        onAddNode(canvasSize, camera, longPressOffset)
+                        val canvasCenterX = (canvasSize.width/2f - camera.offset.x) / camera.scale
+                        val canvasCenterY = (canvasSize.height/2f - camera.offset.y) / camera.scale
+                        val defaultNodeOffset = Offset(
+                            x = canvasCenterX - defaultNodeWidth/2,
+                            y = canvasCenterY - defaultNodeHeight/2
+                        )
+
+                        val newTextNode = SpaceObject.Node.TextNode(
+                            offset = defaultNodeOffset,
+                            width = defaultNodeWidth,
+                            height = defaultNodeHeight,
+                            borderColor = defaultNodeBorderColor,
+                            backgroundColor = defaultNodeBackgroundColor,
+                            text = defaultNodeText,
+                            fontSize = defaultNodeFontSize
+                        )
+
+                        mevm.addNode(
+                            spaceUUID = thisSpace.uuid,
+                            newNode = newTextNode
+                        )
+
                         coroutineScope.launch {
                             itemAdderSheetState.hide()
                         }.invokeOnCompletion {
@@ -677,6 +770,7 @@ fun SpaceScreen(
                         coroutineScope.launch {
                             itemAdderSheetState.hide()
                         }.invokeOnCompletion {
+                            imagePickerLauncher.launch("image/*")
                             mevm.changeNodeSheetVisibility(value = false)
                             activity?.hideSystemStatusBar()
                         }
@@ -687,22 +781,22 @@ fun SpaceScreen(
     }
 
 
-    editingNode?.let { node ->
+    editingTextNode?.let { node ->
         NodeTextEditDialog(
             initialText = node.text,
             initialFontSize = node.fontSize,
             onConfirm = { newText, newFontSize ->
-                mevm.miplChangeSpaceNode(
-                    mapItemUUID = thisSpace.uuid,
+                mevm.changeNode(
+                    spaceUUID = thisSpace.uuid,
                     nodeUUID = node.uuid,
                     newNode = node.copy(
                         text = newText,
                         fontSize = newFontSize
                     ),
                 )
-                editingNode = null
+                editingTextNode = null
             },
-            onDismiss = { editingNode = null }
+            onDismiss = { editingTextNode = null }
         )
     }
 
@@ -727,12 +821,19 @@ fun SpaceScreen(
                 NodeColorPicker(
                     label = stringResource(id = R.string.node_editor_sheet_border_color_label),
                     selectedColor = thisNode.borderColor,
-                    predefinedColors = predefinedBorderColors,
+                    predefinedColors = predefinedColorPickerBorderColors,
                     onColorSelected = { color ->
-                        mevm.miplChangeSpaceNode(
-                            mapItemUUID = thisSpace.uuid,
+                        mevm.changeNode(
+                            spaceUUID = thisSpace.uuid,
                             nodeUUID = thisNode.uuid,
-                            newNode = thisNode.copy(borderColor = color)
+                            newNode = when(thisNode) {
+                                is SpaceObject.Node.TextNode -> {
+                                    thisNode.copy(borderColor = color)
+                                }
+                                is SpaceObject.Node.ImageNode -> {
+                                    thisNode.copy(borderColor = color)
+                                }
+                            }
                         )
                     },
                 )
@@ -742,12 +843,19 @@ fun SpaceScreen(
                 NodeColorPicker(
                     label = stringResource(id = R.string.node_editor_sheet_background_color_label),
                     selectedColor = thisNode.backgroundColor,
-                    predefinedColors = predefinedBackgroundColors,
+                    predefinedColors = predefinedColorPickerBackgroundColors,
                     onColorSelected = { color ->
-                        mevm.miplChangeSpaceNode(
-                            mapItemUUID = thisSpace.uuid,
+                        mevm.changeNode(
+                            spaceUUID = thisSpace.uuid,
                             nodeUUID = thisNode.uuid,
-                            newNode = thisNode.copy(backgroundColor = color)
+                            newNode = when(thisNode){
+                                is SpaceObject.Node.ImageNode -> {
+                                    thisNode.copy(backgroundColor = color)
+                                }
+                                is SpaceObject.Node.TextNode -> {
+                                    thisNode.copy(backgroundColor = color)
+                                }
+                            }
                         )
                     }
                 )
@@ -759,11 +867,10 @@ fun SpaceScreen(
                     contentDescription = stringResource(id = R.string.contentDescription_delete_selected_nodes_option),
                     text = stringResource(id = R.string.delete_selected_nodes_label),
                     itemOnClick = {
-                        if(allSelectedNodeUUIDs.isEmpty()){
-                            return@BottomSheetItem
-                        }
-                        mevm.miplRemoveSpaceNodes(
-                            mapItemUUID = thisSpace.uuid,
+                        if(allSelectedNodeUUIDs.isEmpty()) return@BottomSheetItem
+
+                        mevm.deleteSpaceNodes(
+                            spaceUUID = thisSpace.uuid,
                             *allSelectedNodeUUIDs.toTypedArray()
                         )
                         coroutineScope.launch {

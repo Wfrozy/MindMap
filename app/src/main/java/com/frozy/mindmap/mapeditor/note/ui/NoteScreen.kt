@@ -90,8 +90,8 @@ fun NoteScreen(
                         } else {
                             activity?.hideSystemStatusBar()
                         }
-                        mevm.miplChangeNoteTitle(
-                            mapItemUUID = thisNote.uuid,
+                        mevm.changeNoteTitle(
+                            noteUUID = thisNote.uuid,
                             newTitle = title
                         )
                     },
@@ -123,8 +123,8 @@ fun NoteScreen(
                         } else {
                             activity?.hideSystemStatusBar()
                         }
-                        mevm.miplChangeNoteContent(
-                            mapItemUUID = thisNote.uuid,
+                        mevm.changeNoteContent(
+                            noteUUID = thisNote.uuid,
                             newContent = content
                         )
                     },

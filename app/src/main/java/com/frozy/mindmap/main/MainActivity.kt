@@ -74,8 +74,6 @@ import com.frozy.mindmap.ui.utils.openSelectedMap
 import kotlinx.coroutines.launch
 import java.util.UUID
 
-//todo test import map with wrong extension
-
 class MainActivity : ComponentActivity() {
     private val mainActivityVM: MainActivityViewModel by viewModels()
 

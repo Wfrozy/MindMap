@@ -57,18 +57,18 @@ fun EditMapDialog(
                 onClick = { onConfirm(entry) },
                 enabled = !isFileNameInvalid && originalMapName != entry.name
             ) {
-                Text(text = stringResource(R.string.text_confirm))
+                Text(text = stringResource(R.string.word_confirm))
             }
         },
         dismissButton = {
             TextButton(onClick = onDelete) {
                 Text(
-                    text = stringResource(R.string.text_delete),
+                    text = stringResource(R.string.word_delete),
                     color = MaterialTheme.colorScheme.error
                 )
             }
             TextButton(onClick = onDismiss) {
-                Text(text = stringResource(id = R.string.text_cancel))
+                Text(text = stringResource(id = R.string.word_cancel))
             }
         },
         properties = DialogProperties(

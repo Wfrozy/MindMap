@@ -1,9 +1,10 @@
 <resources>
-    <string name="text_cancel">Cancel</string>
-    <string name="text_confirm">Confirm</string>
-    <string name="text_create">Create</string>
-    <string name="text_delete">Delete</string>
-    <string name="text_settings">Settings</string>
+    <string name="word_cancel">Cancel</string>
+    <string name="word_confirm">Confirm</string>
+    <string name="word_create">Create</string>
+    <string name="word_delete">Delete</string>
+    <string name="word_settings">Settings</string>
+    <string name="word_unknown">Unknown</string>
 
     <string name="app_name">MindMap</string>
     <string name="create_new_file_title">Create new map</string>
@@ -64,4 +65,5 @@
     <string name="node_text_edit_dialog_font_size_textfield_label">Font size</string>
     <string name="node_text_edit_dialog_edit_text_textfield_label">Edit text</string>
     <string name="node_text_edit_dialog_node_text_textfield_label">Text</string>
+    <string name="toast_mapeditor_failed_to_get_map_name">Failed to get map name.</string>
 </resources>

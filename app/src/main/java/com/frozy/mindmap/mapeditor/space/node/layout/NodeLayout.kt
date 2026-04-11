@@ -2,7 +2,7 @@ package com.frozy.mindmap.mapeditor.space.node.layout
 
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Rect
-import com.frozy.mindmap.mapeditor.models.MapItemObject
+import com.frozy.mindmap.mapeditor.space.models.SpaceObject
 import com.frozy.mindmap.mapeditor.space.node.arrowhandle.NodeArrowHandles
 import com.frozy.mindmap.mapeditor.space.node.resizehandle.NodeResizeHandles
 
@@ -14,11 +14,11 @@ import com.frozy.mindmap.mapeditor.space.node.resizehandle.NodeResizeHandles
  */
 
 data class NodeLayout(
-    val node: MapItemObject.SpaceNode,
+    val node: SpaceObject.Node,
     val nodeHitbox: Rect,
     val resizeHandles: NodeResizeHandles,
     val arrowHandles: NodeArrowHandles,
     val nodeOutlineWidth: Float,
     val cornerRadius: CornerRadius,
-    val textPadding: Int
+    val textPadding: Int?
 )

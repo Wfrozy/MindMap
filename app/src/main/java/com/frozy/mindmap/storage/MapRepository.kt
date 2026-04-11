@@ -23,11 +23,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.util.UUID
-import kotlinx.serialization.json.Json
 
 class MapRepository(private val context: Context) {
 
@@ -305,7 +306,7 @@ class MapRepository(private val context: Context) {
                     e = IOException("Rename returned null")
                 )
                 Log.v("", "permsAfter: ${context.contentResolver.persistedUriPermissions}")
-                //todo fix this!!!
+                //fixme renaming device storage maps bug (uri persistence)
 //                try {
 //                    context.contentResolver.takePersistableUriPermission(
 //                        newUri,
@@ -350,9 +351,9 @@ class MapRepository(private val context: Context) {
 
             if (wasDeleted) {
                 removeMetadataEntry(entryUUID = entryUUID)
-                return@withContext OperationResult.Success
+                OperationResult.Success
             } else {
-                return@withContext OperationResult.Error(e = Exception("Failed to delete file."))
+                OperationResult.Error(e = Exception("Failed to delete file."))
             }
         }
     }
@@ -381,10 +382,10 @@ class MapRepository(private val context: Context) {
 
             } catch (e: SecurityException) {
                 e.printStackTrace()
-                return@withContext OperationResult.Error(e = e)
+                OperationResult.Error(e = e)
             } catch(e: FileNotFoundException){
                 e.printStackTrace()
-                return@withContext OperationResult.Error(e = e)
+                OperationResult.Error(e = e)
             } catch (e: UnsupportedOperationException) {
                 e.printStackTrace()
                 OperationResult.Error(e)
@@ -463,9 +464,18 @@ class MapRepository(private val context: Context) {
                     },
                     lastPageIndex = lastPageIndex
                 )
-            } catch (e: Exception) { //todo make this better
+            } catch (e: FileNotFoundException) {
                 e.printStackTrace()
-                return@withContext null
+                null
+            } catch (e: SecurityException) {
+                e.printStackTrace()
+                null
+            } catch (e: IOException) {
+                e.printStackTrace()
+                null
+            } catch (e: SerializationException) {
+                e.printStackTrace()
+                null
             }
         }
     }
