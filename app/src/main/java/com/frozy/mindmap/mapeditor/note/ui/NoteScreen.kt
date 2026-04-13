@@ -28,20 +28,18 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.frozy.mindmap.R
-import com.frozy.mindmap.ui.utils.hideSystemStatusBar
 import com.frozy.mindmap.mapeditor.MapEditorViewModel
 import com.frozy.mindmap.mapeditor.models.MapItem
+import com.frozy.mindmap.ui.utils.hideSystemStatusBar
 import com.frozy.mindmap.ui.utils.showSystemStatusBar
 import java.util.UUID
 
-//todo [medium] add more customization features to the text
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun NoteScreen(
     activity: Activity?,
     mevm: MapEditorViewModel,
-    mapItemUUID: UUID,
-    pagerList: List<MapItem>
+    mapItemUUID: UUID
 ) {
     val mipl = mevm.mapItemPagerList.collectAsState()
     val thisNote by remember(key1 = mipl) {

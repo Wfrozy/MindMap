@@ -727,7 +727,7 @@ fun SpaceScreen(
                 BottomSheetItem(
                     icon = Icons.Default.LocalActivity,
                     contentDescription = stringResource(id = R.string.contentDescription_map_editor_add_new_node),
-                    text = stringResource(id = R.string.map_editor_add_new_node),
+                    text = stringResource(id = R.string.map_editor_new_text_node),
                     itemOnClick = {
                         val canvasCenterX = (canvasSize.width/2f - camera.offset.x) / camera.scale
                         val canvasCenterY = (canvasSize.height/2f - camera.offset.y) / camera.scale
@@ -764,8 +764,8 @@ fun SpaceScreen(
 
                 BottomSheetItem(
                     icon = Icons.Default.AddPhotoAlternate,
-                    contentDescription = stringResource(id = R.string.map_editor_add_image),
-                    text = stringResource(id = R.string.map_editor_add_image),
+                    contentDescription = stringResource(id = R.string.map_editor_add_image_node),
+                    text = stringResource(id = R.string.map_editor_add_image_node),
                     itemOnClick = {
                         coroutineScope.launch {
                             itemAdderSheetState.hide()
@@ -817,21 +817,23 @@ fun SpaceScreen(
             //this in practice will never be null
             val thisNode = snapshotNodeValue ?: return@ModalBottomSheet
 
+            val liveNode = allSelectedNodes.firstOrNull { it.uuid == thisNode.uuid } ?: thisNode
+
             Column(modifier = Modifier.padding(all = 16.dp)) {
                 NodeColorPicker(
                     label = stringResource(id = R.string.node_editor_sheet_border_color_label),
-                    selectedColor = thisNode.borderColor,
+                    selectedColor = liveNode.borderColor,
                     predefinedColors = predefinedColorPickerBorderColors,
                     onColorSelected = { color ->
                         mevm.changeNode(
                             spaceUUID = thisSpace.uuid,
-                            nodeUUID = thisNode.uuid,
-                            newNode = when(thisNode) {
+                            nodeUUID = liveNode.uuid,
+                            newNode = when(liveNode) {
                                 is SpaceObject.Node.TextNode -> {
-                                    thisNode.copy(borderColor = color)
+                                    liveNode.copy(borderColor = color)
                                 }
                                 is SpaceObject.Node.ImageNode -> {
-                                    thisNode.copy(borderColor = color)
+                                    liveNode.copy(borderColor = color)
                                 }
                             }
                         )
@@ -842,18 +844,18 @@ fun SpaceScreen(
 
                 NodeColorPicker(
                     label = stringResource(id = R.string.node_editor_sheet_background_color_label),
-                    selectedColor = thisNode.backgroundColor,
+                    selectedColor = liveNode.backgroundColor,
                     predefinedColors = predefinedColorPickerBackgroundColors,
                     onColorSelected = { color ->
                         mevm.changeNode(
                             spaceUUID = thisSpace.uuid,
-                            nodeUUID = thisNode.uuid,
-                            newNode = when(thisNode){
+                            nodeUUID = liveNode.uuid,
+                            newNode = when(liveNode){
                                 is SpaceObject.Node.ImageNode -> {
-                                    thisNode.copy(backgroundColor = color)
+                                    liveNode.copy(backgroundColor = color)
                                 }
                                 is SpaceObject.Node.TextNode -> {
-                                    thisNode.copy(backgroundColor = color)
+                                    liveNode.copy(backgroundColor = color)
                                 }
                             }
                         )
@@ -865,7 +867,7 @@ fun SpaceScreen(
                 BottomSheetItem(
                     icon = Icons.Default.Delete,
                     contentDescription = stringResource(id = R.string.contentDescription_delete_selected_nodes_option),
-                    text = stringResource(id = R.string.delete_selected_nodes_label),
+                    text = stringResource(id = R.string.map_editor_delete_selected_nodes),
                     itemOnClick = {
                         if(allSelectedNodeUUIDs.isEmpty()) return@BottomSheetItem
 

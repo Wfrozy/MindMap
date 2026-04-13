@@ -457,7 +457,7 @@ fun MainActivityUI(mavm: MainActivityViewModel) {
 
                 BottomSheetItem(
                     icon = Icons.Default.ImportExport,
-                    text = stringResource(id = R.string.import_file),
+                    text = stringResource(id = R.string.import_map),
                     itemOnClick = {
                         importFilesLauncher.launch(input = arrayOf("*/*"))
                         coroutineScope.launch {

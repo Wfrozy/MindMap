@@ -43,10 +43,7 @@ import com.github.skydoves.colorpicker.compose.BrightnessSlider
 import com.github.skydoves.colorpicker.compose.HsvColorPicker
 import com.github.skydoves.colorpicker.compose.rememberColorPickerController
 
-//todo the border around the swatches sometimes gets stuck
-//todo using a null background color when the border is already null makes it switch for some reason
-//todo lazy list for the color swatches?
-//
+
 @Composable
 fun NodeColorPicker(
     selectedColor: Color?,
@@ -65,22 +62,22 @@ fun NodeColorPicker(
             horizontalArrangement = Arrangement.spacedBy(space = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // ── No color option ───────────────────────────────────────────
+            //no color option
             NoColorSwatch(
                 isSelected = selectedColor == null,
                 onClick = { onColorSelected(null) }
             )
 
-            // ── Predefined swatches ───────────────────────────────────────
+            //predefined swatches
             predefinedColors.forEach { color ->
                 ColorSwatch(
                     color = color,
-                    isSelected = selectedColor == color,
+                    isSelected = selectedColor?.value == color.value,
                     onClick = { onColorSelected(color) }
                 )
             }
 
-            // ── Custom color button ───────────────────────────────────────
+            //custom color button
             Box(
                 modifier = Modifier
                     .size(size = 36.dp)
@@ -234,7 +231,7 @@ private fun CustomColorPickerDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(text = "Custom color") },
+        title = { Text(text = stringResource(id = R.string.node_color_picker_custom_color_label)) },
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(space = 12.dp),
@@ -254,12 +251,12 @@ private fun CustomColorPickerDialog(
                     controller = controller,
                 )
 
-                // ── RGB inputs ────────────────────────────────────────────
+                //RGB inputs
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(space = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // color preview swatch
+                    //color preview swatch
                     Box(
                         modifier = Modifier
                             .size(size = 40.dp)
@@ -295,12 +292,12 @@ private fun CustomColorPickerDialog(
         },
         confirmButton = {
             TextButton(onClick = { onColorConfirmed(currentColor) }) {
-                Text(text = "Confirm")
+                Text(text = stringResource(id = R.string.word_confirm))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(text = "Cancel")
+                Text(text = stringResource(id = R.string.word_cancel))
             }
         }
     )

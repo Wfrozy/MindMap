@@ -313,8 +313,7 @@ fun MapEditorUI(
                                         NoteScreen(
                                             activity = currentActivity,
                                             mevm = mevm,
-                                            mapItemUUID = currentPage.uuid,
-                                            pagerList = mapItemPagerList
+                                            mapItemUUID = currentPage.uuid
                                         )
                                     }
                                     is MapItem.Space -> {

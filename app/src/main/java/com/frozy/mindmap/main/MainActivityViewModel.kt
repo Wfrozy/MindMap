@@ -24,8 +24,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.UUID
 
-//todo [small] more specific toasts
-//todo [small] toast when the file extension is incorrect
 
 class MainActivityViewModel(application: Application) : AndroidViewModel(application) {
     private val context = getApplication<Application>()

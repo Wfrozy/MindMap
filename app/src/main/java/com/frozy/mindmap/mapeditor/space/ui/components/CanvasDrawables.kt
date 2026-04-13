@@ -156,7 +156,7 @@ fun DrawScope.drawTextNode(
     //TextNodes have non-null textPadding values in their layout, this is so the smart cast gets applied
     if(layout.textPadding == null) return
 
-    val fallbackSelectedBorderColor = fallbackSelectedBorderColor.copy(
+    val fadedFallbackSelectedBorderColor = fallbackSelectedBorderColor.copy(
         alpha = fallbackSelectedBorderColor.alpha*0.2f
     )
 
@@ -224,7 +224,7 @@ fun DrawScope.drawTextNode(
     if(layout.node.isSelected){
         //outline border
         drawRoundRect(
-            color = layout.node.borderColor?.strengthen() ?: fallbackSelectedBorderColor,
+            color = layout.node.borderColor?.strengthen() ?: fadedFallbackSelectedBorderColor,
             style = Stroke(width = outlineWidth * 2f),
             topLeft = nodeTopLeft,
             size = Size(nodeWidth, nodeHeight),
@@ -238,7 +238,7 @@ fun DrawScope.drawTextNode(
 
         //top left resize handle outline
         drawRoundRect(
-            color = layout.node.borderColor?.strengthen() ?: fallbackSelectedBorderColor,
+            color = layout.node.borderColor?.strengthen() ?: fadedFallbackSelectedBorderColor,
             style = Stroke(width = handleStrokeWidth),
             topLeft = layout.resizeHandles.topLeft.topLeft,
             size = Size(handleWidth, handleHeight),
@@ -257,7 +257,7 @@ fun DrawScope.drawTextNode(
 
         //top right resize handle outline
         drawRoundRect(
-            color = layout.node.borderColor?.strengthen() ?: fallbackSelectedBorderColor,
+            color = layout.node.borderColor?.strengthen() ?: fadedFallbackSelectedBorderColor,
             style = Stroke(width = handleStrokeWidth),
             topLeft = layout.resizeHandles.topRight.topLeft,
             size = Size(handleWidth, handleHeight),
@@ -276,7 +276,7 @@ fun DrawScope.drawTextNode(
 
         //bottom left resize handle outline
         drawRoundRect(
-            color = layout.node.borderColor?.strengthen() ?: fallbackSelectedBorderColor,
+            color = layout.node.borderColor?.strengthen() ?: fadedFallbackSelectedBorderColor,
             style = Stroke(width = handleStrokeWidth),
             topLeft = layout.resizeHandles.bottomLeft.topLeft,
             size = Size(handleWidth, handleHeight),
@@ -295,7 +295,7 @@ fun DrawScope.drawTextNode(
 
         //bottom right resize handle outline
         drawRoundRect(
-            color = layout.node.borderColor?.strengthen() ?: fallbackSelectedBorderColor,
+            color = layout.node.borderColor?.strengthen() ?: fadedFallbackSelectedBorderColor,
             style = Stroke(width = handleStrokeWidth),
             topLeft = layout.resizeHandles.bottomRight.topLeft,
             size = Size(handleWidth, handleHeight),
@@ -400,6 +400,10 @@ fun DrawScope.drawImageNode(
     val nodeHeight = layout.nodeHitbox.height
     val outlineWidth = layout.nodeOutlineWidth
 
+    val fadedFallbackSelectedBorderColor = fallbackSelectedBorderColor.copy(
+        alpha = fallbackSelectedBorderColor.alpha*0.2f
+    )
+
     clipPath(
         Path().apply {
             addRoundRect(RoundRect(
@@ -415,8 +419,9 @@ fun DrawScope.drawImageNode(
         )
     }
 
+    //border
     drawRoundRect(
-        color = fallbackSelectedBorderColor,
+        color = layout.node.borderColor ?: Color.Transparent,
         style = Stroke(width = layout.nodeOutlineWidth),
         topLeft = topLeft,
         size = Size(width, height),
@@ -432,14 +437,16 @@ fun DrawScope.drawImageNode(
             y = cornerRadius.y / 2f
         )
 
+        //selected border
         drawRoundRect(
-            color = layout.node.borderColor?.strengthen() ?: fallbackSelectedBorderColor,
+            color = layout.node.borderColor?.strengthen() ?: fadedFallbackSelectedBorderColor,
             style = Stroke(width = outlineWidth * 2f),
             topLeft = nodeTopLeft,
             size = Size(nodeWidth, nodeHeight),
             cornerRadius = cornerRadius
         )
 
+        //handles
         listOf(
             layout.resizeHandles.topLeft,
             layout.resizeHandles.topRight,
@@ -453,7 +460,7 @@ fun DrawScope.drawImageNode(
                 cornerRadius = handleCornerRadius
             )
             drawRoundRect(
-                color = layout.node.borderColor?.strengthen() ?: fallbackSelectedBorderColor,
+                color = layout.node.borderColor?.strengthen() ?: fadedFallbackSelectedBorderColor,
                 style = Stroke(width = handleStrokeWidth),
                 topLeft = handle.topLeft,
                 size = Size(handleWidth, handleHeight),

@@ -20,8 +20,6 @@ sealed class SpaceObject(
         open val backgroundColor: Color?,
     ) : SpaceObject(uuid) {
 
-        //todo remove isSelected from this class
-        //todo fix bytearray warning
         data class ImageNode(
             override val uuid: UUID = UUID.randomUUID(),
             override val offset: Offset,
@@ -33,7 +31,6 @@ sealed class SpaceObject(
             val bitmapBytes: ByteArray
         ) : Node(uuid, offset, width, height, isSelected, borderColor, backgroundColor)
 
-        //todo remove isSelected from this class
         data class TextNode(
             override val uuid: UUID = UUID.randomUUID(),
             override val offset: Offset,

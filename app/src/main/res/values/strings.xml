@@ -16,7 +16,7 @@
     <string name="create_new_file_storage_option_subtitle">Storage Option</string>
     <string name="default_map_name_with_extension">NewMap.mindmap</string>
     <string name="default_map_name_no_extension">NewMap</string>
-    <string name="import_file">Import map</string>
+    <string name="import_map">Import map</string>
     <string name="contentDescription_settings_iconButton">App settings</string>
     <string name="contentDescription_create_new_file_fab">Create new map</string>
     <string name="contentDescription_device_storage_info_icon">Store map on device storage info bubble</string>
@@ -30,8 +30,9 @@
     <string name="background_text_in_empty_map">Nothing here yet…</string>
     <string name="map_editor_new_note">New Note</string>
     <string name="map_editor_new_space">New Space</string>
-    <string name="map_editor_add_image">Add Image</string>
-
+    <string name="map_editor_add_image_node">Add Image Node</string>
+    <string name="map_editor_new_text_node">Add new Text Node</string>
+    <string name="map_editor_delete_selected_nodes">Delete selected nodes</string>
 
     <string name="toast_file_created_success">Created %1$s</string>
     <string name="toast_file_created_fail">Failed to create %1$s</string>
@@ -41,12 +42,10 @@
     <string name="toast_file_picker_io_exception">Failed to read content from map file.</string>
     <string name="toast_file_deleted_fail">Failed to delete %1$s</string>
     <string name="toast_file_deleted_success">Deleted %1$s</string>
-
     <string name="toast_file_saving_cancelled">Cancelled saving.</string>
     <string name="toast_file_picker_cancelled">File picker cancelled.</string>
 
-    <string name="map_editor_add_new_node">Add new node</string>
-    <string name="contentDescription_map_editor_add_new_node">Add new node</string>
+    <string name="contentDescription_map_editor_add_new_node">Add new text node</string>
     <string name="note_screen_title_placeholder">Title</string>
     <string name="note_screen_note_content_placeholder">Content</string>
     <string name="file_deletion_confirmation_message">Are you sure you want to delete the map?</string>
@@ -57,13 +56,13 @@
     <string name="toast_number_of_already_existing_maps">%1$s of the selected maps already exist.</string>
     <string name="default_space_node_text">Type here</string>
     <string name="contentDescription_delete_selected_nodes_option">Delete selected nodes option</string>
-    <string name="delete_selected_nodes_label">Delete selected nodes</string>
-    <string name="node_editor_sheet_border_color_label">Border color</string>
-    <string name="node_editor_sheet_background_color_label">Background color</string>
     <string name="contentDescription_custom_color_selector">Custom color selector</string>
     <string name="bottom_sheet_item_delete_current_map_item">Delete current map item</string>
+    <string name="node_editor_sheet_border_color_label">Border color</string>
+    <string name="node_editor_sheet_background_color_label">Background color</string>
     <string name="node_text_edit_dialog_font_size_textfield_label">Font size</string>
     <string name="node_text_edit_dialog_edit_text_textfield_label">Edit text</string>
     <string name="node_text_edit_dialog_node_text_textfield_label">Text</string>
     <string name="toast_mapeditor_failed_to_get_map_name">Failed to get map name.</string>
+    <string name="node_color_picker_custom_color_label">Custom color</string>
 </resources>

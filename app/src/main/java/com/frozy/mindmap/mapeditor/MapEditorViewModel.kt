@@ -96,7 +96,6 @@ class MapEditorViewModel(application: Application) : AndroidViewModel(applicatio
                 entryUUID,
                 lastPageIndex = _initialPageIndex.value
             )
-            //todo toasts
             _mapItemPagerList.update {
                 loadedMapData?.items ?: emptyList()
             }

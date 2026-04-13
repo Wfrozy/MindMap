@@ -3,7 +3,6 @@ package com.frozy.mindmap.storage.models.serializables
 import com.frozy.mindmap.constants.FeatureVersions
 import kotlinx.serialization.Serializable
 
-//todo fix bytearray warning
 @Serializable
 data class ImageNodeSerializable(
     val version: Int = FeatureVersions.IMAGE_NODE_DATA_VERSION,

@@ -306,16 +306,6 @@ class MapRepository(private val context: Context) {
                     e = IOException("Rename returned null")
                 )
                 Log.v("", "permsAfter: ${context.contentResolver.persistedUriPermissions}")
-                //fixme renaming device storage maps bug (uri persistence)
-//                try {
-//                    context.contentResolver.takePersistableUriPermission(
-//                        newUri,
-//                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-//                    )
-//                } catch (e: SecurityException) {
-//                    e.printStackTrace()
-//                    Log.w("URI_PERMISSION", "Map creation SecurityException from $newUri", e)
-//                }
 
                 renameDeviceStorageMetadataEntry(
                     newUri = newUri,
