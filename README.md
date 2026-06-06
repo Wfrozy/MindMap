@@ -2,6 +2,7 @@
 ---
 
 EN 🇬🇧
+
 MindMap is an android app for organizing thoughts, ideas, concepts or anything of the sorts, built as a small personal growth project to be presented and evaluated by juries.
 
 **It was definitely presented and evaluated by juries but this code repo was never fucking inspected by them** so I could have just made a *flaky "just-for-looks" project* and probably would have succeeded better but oh well, that's the price I pay for trying to learn and follow good code practices as a beginner... I'm half kidding and being dramatic, but I am definitely a little salty.
